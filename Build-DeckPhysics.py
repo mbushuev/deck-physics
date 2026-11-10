@@ -17,7 +17,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 
 SOURCE = Path(__file__).resolve().parent
-PACKAGE = 'DeckPhysX-Proton11'
+PACKAGE = 'DeckPhysics-Proton11'
 UPSTREAM_NOTICE_DIRS = {'HiGHS', 'lld', 'llvm', 'zluda-cargo'}
 
 
@@ -121,8 +121,8 @@ def build(proton, output):
 
         stage = Path(work) / PACKAGE
         stage.mkdir()
-        for name in ('Install.sh', 'Install-DeckPhysX.py', 'PatchDialog.py', 'PatchPackages.py',
-                     'Build-DeckPhysX.py', 'run', 'README.md', 'BUILD.md', 'VERSION', 'upstream.json',
+        for name in ('Install.sh', 'Install-DeckPhysics.py', 'PatchDialog.py', 'PatchPackages.py',
+                     'Build-DeckPhysics.py', 'run', 'README.md', 'BUILD.md', 'VERSION', 'upstream.json',
                      'alice-pe32-null-host-free.patch'):
             shutil.copy2(SOURCE / name, stage / name)
         shutil.copytree(SOURCE / 'docs', stage / 'docs')

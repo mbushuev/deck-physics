@@ -133,7 +133,7 @@ def confirm_physx(game, requirement):
     message = (f'{game} requires {requirement}.\n\n'
                'The installer will reuse a verified local copy of NVIDIA PhysX 9.23.1019 '
                'or download it from NVIDIA (about 29 MB) if needed.\n\n'
-               f'If you skip this step, Deck PhysX cannot launch {game}.')
+               f'If you skip this step, Deck Physics cannot launch {game}.')
     result = subprocess.run(['kdialog', '--title', f'PhysX for {game}',
                              '--yes-label', f'Set Up {game}', '--no-label', f'Skip {game}',
                              '--yesno', message], check=False)
@@ -314,7 +314,7 @@ def main():
         detected = tuple(games)
         with tempfile.TemporaryDirectory(dir=STATE) as temp:
             alice = prepare_physx(apps, layout, STATE, Path(temp))
-            skipped = '\n'.join(f'Deck PhysX cannot launch {GAMES[app_id][0]} until its PhysX setup is complete.'
+            skipped = '\n'.join(f'Deck Physics cannot launch {GAMES[app_id][0]} until its PhysX setup is complete.'
                                 for app_id in detected if app_id not in games)
             if not games:
                 subprocess.run(['kdialog', '--title', 'PhysX for Steam Deck', '--msgbox',

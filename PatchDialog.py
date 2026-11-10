@@ -26,7 +26,7 @@ class PatchDialog:
                 for key, (default, _, _) in launch_options.items()
             }
 
-        self.dialog = gtk.Dialog(title='Deck PhysX Setup')
+        self.dialog = gtk.Dialog(title='Deck Physics Setup')
         self.dialog.set_default_size(1060, 620)
         self.dialog.set_border_width(8)
         body = self.dialog.get_content_area()

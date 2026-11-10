@@ -5,20 +5,20 @@ Use a Linux x86-64 build host with Python 3.9 or later and a C compiler. See the
 From a clean checkout, run the builder.
 
 ```sh
-python3 Build-DeckPhysX.py
+python3 Build-DeckPhysics.py
 ```
 
 The builder downloads the pinned [Proton-ZLUDA release asset][release] and verifies the archive and each selected runtime file against `upstream.json`. Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. It builds the HIP wait library from `native/hip-wait-startup.c` and uses `bundled-patches/` to create the optional game patch files. The Steam launch uses the Valve compatibility tool selected by the user. PhysX binaries are installed locally on the Deck.
 
 ## Versions and releases
 
-[`VERSION`](VERSION) records the project version. The installer archive includes that file and the documentation. For version `0.1.0`, the default filename is `DeckPhysX-Proton11-0.1.0.tar.gz`.
+[`VERSION`](VERSION) records the project version. The installer archive includes that file and the documentation. For version `0.1.0`, the default filename is `DeckPhysics-Proton11-0.1.0.tar.gz`.
 
-The [Build installer](.github/workflows/build.yml) workflow uploads two separate artifacts, `DeckPhysX-Proton11` for the installer and `DeckPhysX-Proton11-sources` for the corresponding source archive. Each includes its SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes those files as GitHub Release assets. Update `VERSION` and the README version before tagging a new release.
+The [Build installer](.github/workflows/build.yml) workflow uploads two separate artifacts, `DeckPhysics-Proton11-0.1.0` for the installer and `DeckPhysics-Proton11-0.1.0-sources` for the corresponding source archive. Both artifact names are derived from `VERSION`. Each includes its SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes those files as GitHub Release assets. Update `VERSION` and the README version before tagging a new release.
 
 After both uploads succeed, Actions keeps the new pair and removes superseded installer and source artifacts from completed runs of this workflow. Tagged builds clean up after publication. Pull requests from forks build the package for verification.
 
-To build the corresponding source archive on its own, run `python3 Build-DeckPhysX.py --sources-only`. See [third-party software and corresponding source](licenses/SOURCES.md) for its contents and the bundled license notices.
+To build the corresponding source archive on its own, run `python3 Build-DeckPhysics.py --sources-only`. See [third-party software and corresponding source](licenses/SOURCES.md) for its contents and the bundled license notices.
 
 ## Game patch format
 

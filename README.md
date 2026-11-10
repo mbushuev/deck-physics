@@ -1,6 +1,6 @@
-# Deck PhysX
+# Deck Physics
 
-Deck PhysX provides guided setup and tested game profiles for Steam Deck.
+Deck Physics provides guided setup and tested game profiles for Steam Deck.
 
 **Version [0.1.0](VERSION)** · [Installation](docs/installation.md) · [Tested compatibility](docs/compatibility/README.md) · [Build from source](BUILD.md)
 
@@ -17,7 +17,7 @@ Reference FPS comes from development builds in the named scenes. See each game p
 
 ### Battery performance
 
-In the [Batman battery comparison](docs/compatibility/batman-arkham-asylum-goty.md#battery-performance), Deck PhysX reduced whole-device power draw by **5.6%** while both development setups averaged about **59 FPS** under the same 60 FPS cap.
+In the [Batman battery comparison](docs/compatibility/batman-arkham-asylum-goty.md#battery-performance), Deck Physics reduced whole-device power draw by **5.6%** while both development setups averaged about **59 FPS** under the same 60 FPS cap.
 
 ## Getting started
 
@@ -29,4 +29,4 @@ See the [installation guide](docs/installation.md) for requirements and setup de
 
 ## Acknowledgments
 
-Deck PhysX builds on Christian's work across [Proton-ZLUDA](https://github.com/chkuendig/Proton-ZLUDA), [zluda-wine](https://github.com/chkuendig/zluda-wine), [ZLUDA](https://github.com/chkuendig/ZLUDA), and [llvm-project](https://github.com/chkuendig/llvm-project). See [upstream sources](BUILD.md#sources-and-updates) for the exact revisions.
+Deck Physics builds on Christian's work across [Proton-ZLUDA](https://github.com/chkuendig/Proton-ZLUDA), [zluda-wine](https://github.com/chkuendig/zluda-wine), [ZLUDA](https://github.com/chkuendig/ZLUDA), and [llvm-project](https://github.com/chkuendig/llvm-project). See [upstream sources](BUILD.md#sources-and-updates) for the exact revisions.

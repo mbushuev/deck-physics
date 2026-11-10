@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deck-physx-installer-artifacts
+  group: deck-physics-installer-artifacts
   queue: max
 
 jobs:
@@ -20,6 +20,8 @@ jobs:
     outputs:
       archive: ${{ steps.package.outputs.archive }}
       sources: ${{ steps.package.outputs.sources }}
+      installer_name: ${{ steps.package.outputs.installer_name }}
+      sources_name: ${{ steps.package.outputs.sources_name }}
       installer_id: ${{ steps.installer.outputs.artifact-id }}
       sources_id: ${{ steps.sources.outputs.artifact-id }}
     steps:
@@ -27,18 +29,20 @@ jobs:
       - name: Build the installer and corresponding sources
         id: package
         run: |
-          archive=$(python3 Build-DeckPhysX.py)
-          sources=$(python3 Build-DeckPhysX.py --sources-only)
+          archive=$(python3 Build-DeckPhysics.py)
+          sources=$(python3 Build-DeckPhysics.py --sources-only)
           sha256sum "$archive" > "$archive.sha256"
           sha256sum "$sources" > "$sources.sha256"
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
           echo "sources=$sources" >> "$GITHUB_OUTPUT"
+          echo "installer_name=${archive%.tar.gz}" >> "$GITHUB_OUTPUT"
+          echo "sources_name=${sources%.tar.gz}" >> "$GITHUB_OUTPUT"
       - name: Upload installer
         id: installer
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: DeckPhysX-Proton11
+          name: ${{ steps.package.outputs.installer_name }}
           path: |
             ${{ steps.package.outputs.archive }}
             ${{ steps.package.outputs.archive }}.sha256
@@ -49,7 +53,7 @@ jobs:
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: DeckPhysX-Proton11-sources
+          name: ${{ steps.package.outputs.sources_name }}
           path: |
             ${{ steps.package.outputs.sources }}
             ${{ steps.package.outputs.sources }}.sha256
@@ -72,10 +76,10 @@ jobs:
           test "$GITHUB_REF_NAME" = "v$(cat VERSION)"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: DeckPhysX-Proton11
+          name: ${{ needs.build.outputs.installer_name }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: DeckPhysX-Proton11-sources
+          name: ${{ needs.build.outputs.sources_name }}
       - name: Publish the tagged installer
         env:
           GH_TOKEN: ${{ github.token }}
@@ -101,6 +105,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          INSTALLER_NAME: ${{ needs.build.outputs.installer_name }}
+          SOURCES_NAME: ${{ needs.build.outputs.sources_name }}
           INSTALLER_ID: ${{ needs.build.outputs.installer_id }}
           SOURCES_ID: ${{ needs.build.outputs.sources_id }}
         run: |
@@ -109,8 +115,8 @@ jobs:
           current=$(gh api --paginate --slurp "$api/runs/$GITHUB_RUN_ID/artifacts?per_page=100")
           if ! jq -e '
             [.[].artifacts[] | select(.expired == false)] as $available
-            | any($available[]; .name == "DeckPhysX-Proton11" and (.id | tostring) == env.INSTALLER_ID)
-              and any($available[]; .name == "DeckPhysX-Proton11-sources" and (.id | tostring) == env.SOURCES_ID)
+            | any($available[]; .name == env.INSTALLER_NAME and (.id | tostring) == env.INSTALLER_ID)
+              and any($available[]; .name == env.SOURCES_NAME and (.id | tostring) == env.SOURCES_ID)
           ' <<< "$current" >/dev/null; then
             echo '::error::Both new build artifacts must be available before cleanup.'
             exit 1
@@ -118,7 +124,7 @@ jobs:
 
           previous=$(gh api --paginate --slurp "$api/artifacts?per_page=100" | jq -r '
             .[].artifacts[]
-            | select(.name == "DeckPhysX-Proton11" or .name == "DeckPhysX-Proton11-sources")
+            | select(.name | test("^DeckPhysX-Proton11(-sources)?$|^DeckPhysics-Proton11-[0-9]+\\.[0-9]+\\.[0-9]+(-sources)?$"))
             | select(.workflow_run.id != null and (.workflow_run.id | tostring) != env.GITHUB_RUN_ID)
             | [.workflow_run.id, .id] | @tsv
           ')

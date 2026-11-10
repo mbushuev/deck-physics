@@ -115,7 +115,7 @@ def launch(command, work, app_id, layout):
         'export LD_LIBRARY_PATH="$1${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"; '
         'if [ -n "$2" ]; then export LD_PRELOAD="$2${LD_PRELOAD:+:$LD_PRELOAD}"; fi; '
         'shift 2; exec "$@"',
-        'deck-physx-runtime', libs, ':'.join(preloads),
+        'deck-physics-runtime', libs, ':'.join(preloads),
     ]
     with (RELEASE / f'launch-{app_id}.log').open('w') as log:
         return subprocess.call(mount + ['--'] + command, env=env, stdout=log, stderr=subprocess.STDOUT)
@@ -136,5 +136,5 @@ if __name__ == '__main__':
     try:
         raise SystemExit(main(sys.argv[1:]))
     except (OSError, ValueError) as error:
-        print(f'Deck PhysX: {error}', file=sys.stderr)
+        print(f'Deck Physics: {error}', file=sys.stderr)
         raise SystemExit(1)

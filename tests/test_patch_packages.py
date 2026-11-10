@@ -9,7 +9,7 @@ from PatchPackages import discover_patches, validate_selection
 
 
 REPO = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location('installer', REPO / 'Install-DeckPhysX.py')
+SPEC = importlib.util.spec_from_file_location('installer', REPO / 'Install-DeckPhysics.py')
 INSTALLER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(INSTALLER)
 
