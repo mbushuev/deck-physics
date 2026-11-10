@@ -1,7 +1,6 @@
 # Repository rules
 
-- Put the initial import and integration commits directly on `main`.
-- After the initial integration, make changes on short, descriptive branches such as `installer-rollback` or `update-zluda`. Do not use tool or `codex` prefixes.
-- Verify changes on their branch before merging them into `main`. Build and tag releases from tested commits on `main`.
+- Keep related changes together on an existing branch. Create a short, descriptively named branch only when work needs isolation or separate review. Do not use tool or `codex` prefixes.
+- Verify changes before merging them into `main`. Once `main` contains the commits, delete the merged topic branches locally and on GitHub. Build and tag releases from tested commits on `main`.
 - Write documentation, comments, and project descriptions in English. Use repository-relative paths in examples and documentation. Discover game and Steam library locations at runtime.
 - Keep commits focused. Exclude personal data, machine-specific paths, game files, proprietary PhysX binaries and generated modules, credentials, saves, profiling captures, and unrelated experiments.
