@@ -3,6 +3,20 @@
     "url": "https://github.com/chkuendig/Proton-ZLUDA/releases/download/proton-zluda-11.0-20261108-799caed8/Proton-ZLUDA.tar.gz",
     "sha256": "7256fa1646b2a1b178a309096b312eb0773c5c84152455bae66d2d772a068a90"
   },
+  "corresponding_sources": {
+    "wine-e60892c.tar.gz": {
+      "url": "https://codeload.github.com/ValveSoftware/wine/tar.gz/e60892cc2398b0a83c332a2078c7b85e47bdb42b",
+      "sha256": "d61805d35fb3da26fe3e0f77d68268eb81ceb97cfda326d2d58725be43897416"
+    },
+    "proton-zluda-799caed8.tar.gz": {
+      "url": "https://codeload.github.com/chkuendig/Proton-ZLUDA/tar.gz/799caed86a971786a0697e7dbe2b35e2df37d171",
+      "sha256": "c2a4cb06fc8eb3faf3ca526839940c1d32f438d1183b06cee02e6c916ff18bed"
+    },
+    "numactl-2.0.18.tar.gz": {
+      "url": "https://github.com/numactl/numactl/releases/download/v2.0.18/numactl-2.0.18.tar.gz",
+      "sha256": "b4fc0956317680579992d7815bc43d0538960dc73aa1dd8ca7e3806e30bc1274"
+    }
+  },
   "files": {
     "runtime/valve11-addon/lib/libamd_comgr.so.3.0.0": {
       "member": "files/lib64/libamd_comgr.so.3.0.0",

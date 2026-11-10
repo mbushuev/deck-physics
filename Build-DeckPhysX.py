@@ -6,7 +6,7 @@ import gzip
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
@@ -17,6 +17,7 @@ from urllib.request import urlopen
 
 SOURCE = Path(__file__).resolve().parent
 PACKAGE = 'DeckPhysX-Proton11'
+UPSTREAM_NOTICE_DIRS = {'HiGHS', 'lld', 'llvm', 'zluda-cargo'}
 
 
 def sha256(path):
@@ -29,30 +30,42 @@ def sha256(path):
 
 def collect(stream, files, stage):
     pending = {record['member']: (path, record['sha256']) for path, record in files.items()}
+    notice_dirs = set()
     with tarfile.open(fileobj=stream, mode='r|gz') as archive:
         for member in archive:
             name = member.name.removeprefix('./')
-            if name not in pending:
+            parts = PurePosixPath(name).parts
+            if name in pending:
+                relative, expected = pending.pop(name)
+            elif (member.isfile() and len(parts) >= 3 and parts[0] == 'licenses'
+                  and parts[1] in UPSTREAM_NOTICE_DIRS):
+                if '..' in parts or '\\' in name or ':' in name:
+                    raise ValueError(f'Invalid notice path: {name}')
+                relative, expected = name, None
+                notice_dirs.add(parts[1])
+            else:
                 continue
-            relative, expected = pending.pop(name)
             if not member.isfile():
                 raise ValueError(f'Expected a regular file for {name}')
             target = stage / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             with archive.extractfile(member) as source, target.open('wb') as output:
                 shutil.copyfileobj(source, output)
-            if sha256(target) != expected:
+            if expected is not None and sha256(target) != expected:
                 raise ValueError(f'Unexpected SHA-256 for {name}')
-            if not pending:
-                return
-    raise ValueError('Missing upstream files: ' + ', '.join(sorted(pending)))
+    if pending:
+        raise ValueError('Missing upstream files: ' + ', '.join(sorted(pending)))
+    if missing := UPSTREAM_NOTICE_DIRS - notice_dirs:
+        raise ValueError('Missing upstream notices: ' + ', '.join(sorted(missing)))
 
 
 def bundle(stage, links, output):
+    root = stage.name
+
     def reproducible(info):
         info.uid = info.gid = info.mtime = 0
         info.uname = info.gname = ''
-        info.mode = 0o755 if info.name in (f'{PACKAGE}/run', f'{PACKAGE}/Install.sh') else 0o644
+        info.mode = 0o755 if info.name in (f'{root}/run', f'{root}/Install.sh') else 0o644
         return info
 
     with output.open('wb') as file, gzip.GzipFile(filename='', fileobj=file, mode='wb',
@@ -60,10 +73,10 @@ def bundle(stage, links, output):
         with tarfile.open(fileobj=stream, mode='w|') as archive:
             for path in sorted(stage.rglob('*')):
                 if path.is_file():
-                    archive.add(path, arcname=f'{PACKAGE}/{path.relative_to(stage).as_posix()}',
+                    archive.add(path, arcname=f'{root}/{path.relative_to(stage).as_posix()}',
                                 filter=reproducible)
             for name, target in sorted(links.items()):
-                link = tarfile.TarInfo(f'{PACKAGE}/{name}')
+                link = tarfile.TarInfo(f'{root}/{name}')
                 link.type = tarfile.SYMTYPE
                 link.linkname = target
                 archive.addfile(reproducible(link))
@@ -109,17 +122,42 @@ def build(proton, output):
         os.replace(pending, output)
 
 
+def build_sources(output):
+    pins = json.loads((SOURCE / 'upstream.json').read_text())
+    with tempfile.TemporaryDirectory(dir=output.parent) as work:
+        stage = Path(work) / f'{PACKAGE}-sources'
+        stage.mkdir()
+        shutil.copy2(SOURCE / 'licenses/SOURCES.md', stage / 'SOURCES.md')
+        for name, record in pins['corresponding_sources'].items():
+            target = stage / name
+            with urlopen(record['url'], timeout=60) as source, target.open('wb') as archive:
+                shutil.copyfileobj(source, archive)
+            if sha256(target) != record['sha256']:
+                raise ValueError(f'Unexpected SHA-256 for {name}')
+        pending = Path(work) / output.name
+        bundle(stage, {}, pending)
+        os.replace(pending, output)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--proton', type=Path, help='Use a local copy of the pinned release archive')
-    parser.add_argument('--output', type=Path, help='Override the versioned installer filename')
+    parser.add_argument('--sources-only', action='store_true',
+                        help='Build the corresponding source archive for the release')
+    parser.add_argument('--output', type=Path, help='Override the versioned output filename')
     options = parser.parse_args()
+    if options.sources_only and options.proton is not None:
+        parser.error('--proton applies to the installer build')
     try:
         version = (SOURCE / 'VERSION').read_text(encoding='ascii').strip()
         if not re.fullmatch(r'(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}', version):
             raise ValueError('VERSION must contain a version in MAJOR.MINOR.PATCH format')
-        output = options.output or Path(f'{PACKAGE}-{version}.tar.gz')
-        build(options.proton, output)
+        if options.sources_only:
+            output = options.output or Path(f'{PACKAGE}-{version}-sources.tar.gz')
+            build_sources(output)
+        else:
+            output = options.output or Path(f'{PACKAGE}-{version}.tar.gz')
+            build(options.proton, output)
     except (OSError, ValueError, tarfile.TarError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'{error}\n')
     print(output)
