@@ -22,4 +22,4 @@ The Deck PhysX profile used the graphics mask, cloth collision changes, and bloc
 ## Profile details
 
 - Uses PhysX 2.8.1.58 from the game's Proton prefix. If the required runtime is missing, the installer offers to set it up separately.
-- Sets `AMD_CU_MASK=0x3f` for rendering and selects blocking HIP waits before the first queue is created.
+- The same option sets `AMD_CU_MASK=0x3f` for rendering and selects blocking HIP waits before the first queue is created.

@@ -26,6 +26,7 @@ def bind_file(mount, source, target):
 def launch(command, work, app_id, layout):
     game = layout['games'][app_id]
     options = layout.get('launch_options', {})
+    optimize = options.get('performance_optimizations') is True
     batman = app_id == '35140'
     executable = Path(game['exe'])
     proton = Path(layout['proton'])
@@ -77,13 +78,14 @@ def launch(command, work, app_id, layout):
     env.update(PROTON_USE_WOW64='1', PROTON_ENABLE_ZLUDA='1', PROTON_ENABLE_NVAPI='1',
                PROTON_FORCE_NVAPI='1', DXVK_ENABLE_NVAPI='1', DXVK_NVAPI_ALLOW_OTHER_DRIVERS='1',
                WINEDLLOVERRIDES='nvcuda=b', HSA_OVERRIDE_GFX_VERSION='10.3.0', WINEDEBUG='-all',
-               AMD_CU_MASK='0x3f',
                ZLUDA_WINE_BACKEND_PATH=str(backend_dir / 'libcuda.so.1'))
     env.pop('PROTON_DISABLE_NVAPI', None)
     env.pop('CUDA_FAKE_LUID', None)
     if options.get('show_fps', True):
         env['MANGOHUD'] = '1'
         env.setdefault('MANGOHUD_CONFIG', 'fps,frametime')
+    if optimize:
+        env['AMD_CU_MASK'] = '0x3f'
     if not batman:
         physx = BASE.parent / 'input'
         overlay = work / 'game-dll'
@@ -98,11 +100,13 @@ def launch(command, work, app_id, layout):
     proton_lib = proton / 'files/lib/i386-linux-gnu'
     env['LD_LIBRARY_PATH'] = str(proton_lib) + ':' + env.get('LD_LIBRARY_PATH', '')
     libs = f'{backend_dir}:{BASE / "valve11-addon/lib"}'
+    preload = str(BASE / 'hip-wait-startup.so') if optimize else ''
     command[pi:pi] = [
         '/bin/sh', '-c',
         'export LD_LIBRARY_PATH="$1${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"; '
-        'export LD_PRELOAD="$2${LD_PRELOAD:+:$LD_PRELOAD}"; shift 2; exec "$@"',
-        'deck-physx-runtime', libs, str(BASE / 'hip-wait-startup.so'),
+        'if [ -n "$2" ]; then export LD_PRELOAD="$2${LD_PRELOAD:+:$LD_PRELOAD}"; fi; '
+        'shift 2; exec "$@"',
+        'deck-physx-runtime', libs, preload,
     ]
     with (RELEASE / f'launch-{app_id}.log').open('w') as log:
         return subprocess.call(mount + ['--'] + command, env=env, stdout=log, stderr=subprocess.STDOUT)

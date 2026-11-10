@@ -28,8 +28,10 @@ GAMES = {
     '19680': ('Alice: Madness Returns', 'Binaries/Win32/AliceMadnessReturns.exe'),
 }
 LAUNCH_OPTIONS = {
-    'skip_startup_movies': ('Skip intro videos', 'Skip the videos that play before the main menu.'),
-    'show_fps': ('Show FPS counter', 'Show FPS and frame time in the game with MangoHud.'),
+    'skip_startup_movies': (True, 'Skip intro videos', 'Skip videos before the main menu.'),
+    'show_fps': (True, 'Show FPS counter', 'Show FPS and frame time with MangoHud.'),
+    'performance_optimizations': (False, 'Optimize performance and battery use',
+                                  'Tune GPU scheduling and reduce CPU activity while waiting.'),
 }
 PHYSX_NAME = 'PhysX_9.23.1019_SystemSoftware.exe'
 PHYSX_URL = 'https://us.download.nvidia.com/Windows/9.23.1019/' + PHYSX_NAME
@@ -137,14 +139,15 @@ def choose_launch_options(state):
     except (OSError, ValueError):
         saved = {}
     command = [
-        'zenity', '--list', '--checklist', '--title=Deck PhysX Setup', '--width=680', '--height=280',
-        '--text=Choose what to enable when launching games.\nYou can change these settings later by running the installer again.',
+        'zenity', '--list', '--checklist', '--title=Deck PhysX Setup', '--width=800', '--height=340',
+        '--text=Choose which options to apply to your configured games. Run the installer again '
+        'to change your choices.',
         '--column=Enabled', '--column=Launch option', '--column=What it does', '--column=ID',
         '--hide-column=4', '--print-column=4', '--separator=|', '--ok-label=Continue',
         '--cancel-label=Cancel Setup',
     ]
-    for key, (label, description) in LAUNCH_OPTIONS.items():
-        command.extend(('TRUE' if saved.get(key, True) else 'FALSE', label, description, key))
+    for key, (default, label, description) in LAUNCH_OPTIONS.items():
+        command.extend(('TRUE' if saved.get(key, default) is True else 'FALSE', label, description, key))
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode == 1:
         return None
@@ -337,7 +340,9 @@ def main():
 
     names = ', '.join(game['name'] for game in layout['games'].values())
     option = shlex.quote(str(launch)) + ' %command%'
-    instructions = (f'Installed for {names}.\n\n'
+    optimizations = 'on' if options['performance_optimizations'] else 'off'
+    instructions = (f'Installed for {names}.\n'
+                    f'Performance and battery optimizations are {optimizations}.\n\n'
                     'Select Proton 11.0 in the Steam properties for each game.\n'
                     'Copy the line below into each game’s Launch Options.\n'
                     'Set PhysX to High in the game settings.')
