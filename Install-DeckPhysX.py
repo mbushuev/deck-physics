@@ -28,8 +28,8 @@ GAMES = {
     '19680': ('Alice: Madness Returns', 'Binaries/Win32/AliceMadnessReturns.exe'),
 }
 LAUNCH_OPTIONS = {
-    'skip_startup_movies': 'Skip startup videos',
-    'show_fps': 'Show the Deck PhysX FPS counter (MangoHud)',
+    'skip_startup_movies': ('Skip intro videos', 'Skip the videos that play before the main menu.'),
+    'show_fps': ('Show FPS counter', 'Show FPS and frame time in the game with MangoHud.'),
 }
 PHYSX_NAME = 'PhysX_9.23.1019_SystemSoftware.exe'
 PHYSX_URL = 'https://us.download.nvidia.com/Windows/9.23.1019/' + PHYSX_NAME
@@ -136,15 +136,20 @@ def choose_launch_options(state):
         saved = json.loads(previous.read_text()).get('launch_options', {})
     except (OSError, ValueError):
         saved = {}
-    command = ['kdialog', '--title', 'Deck PhysX Launch Options', '--checklist',
-               'Choose launch options for the games you set up.']
-    for key, label in LAUNCH_OPTIONS.items():
-        command.extend((key, label, 'on' if saved.get(key, True) else 'off'))
+    command = [
+        'zenity', '--list', '--checklist', '--title=Deck PhysX Setup', '--width=680', '--height=280',
+        '--text=Choose what to enable when launching games.\nYou can change these settings later by running the installer again.',
+        '--column=Enabled', '--column=Launch option', '--column=What it does', '--column=ID',
+        '--hide-column=4', '--print-column=4', '--separator=|', '--ok-label=Continue',
+        '--cancel-label=Cancel Setup',
+    ]
+    for key, (label, description) in LAUNCH_OPTIONS.items():
+        command.extend(('TRUE' if saved.get(key, True) else 'FALSE', label, description, key))
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode == 1:
         return None
     result.check_returncode()
-    selected = set(shlex.split(result.stdout))
+    selected = set(result.stdout.strip().split('|'))
     return {key: key in selected for key in LAUNCH_OPTIONS}
 
 
