@@ -2,6 +2,17 @@
 
 GPU PhysX profiles for Batman: Arkham Asylum GOTY and Alice: Madness Returns on Steam Deck. Both profiles use the ZLUDA WoW64 bridge, a graphics CU mask of `0x3f`, and blocking HIP waits set before queue creation.
 
+## Upstream projects
+
+Deck PhysX builds on Christian's (`chkuendig`) Proton-ZLUDA stack. We use its CUDA components with Steam's Valve Proton and add the installer, game profiles, and local compatibility and performance patches.
+
+- [Proton-ZLUDA](https://github.com/chkuendig/Proton-ZLUDA) supplies the release used to build Deck PhysX.
+- [zluda-wine](https://github.com/chkuendig/zluda-wine) provides the Wine WoW64 CUDA bridge.
+- [ZLUDA](https://github.com/chkuendig/ZLUDA) provides the CUDA backend for AMD GPUs.
+- [llvm-project](https://github.com/chkuendig/llvm-project) provides the LLVM compiler backend used by ZLUDA.
+
+Thanks to Christian for developing and sharing this work. See [BUILD.md](BUILD.md#sources-and-updates) for the exact revisions.
+
 ## Requirements
 
 - An x86-64 Steam Deck running SteamOS with the native Steam client and at least one supported game installed.
