@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble the Deck installer from the exact upstream build artifacts."""
+"""Assemble the Deck installer from a pinned Proton-ZLUDA release."""
 
 import argparse
 import gzip
@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
-import zipfile
+from urllib.request import urlopen
 
 
 SOURCE = Path(__file__).resolve().parent
@@ -30,7 +30,7 @@ def collect(stream, files, stage):
     pending = {record['member']: (path, record['sha256']) for path, record in files.items()}
     with tarfile.open(fileobj=stream, mode='r|gz') as archive:
         for member in archive:
-            name = member.name.removeprefix('./').removeprefix('GE-Proton11-7-zluda/')
+            name = member.name.removeprefix('./')
             if name not in pending:
                 continue
             relative, expected = pending.pop(name)
@@ -68,12 +68,16 @@ def bundle(stage, links, output):
                 archive.addfile(reproducible(link))
 
 
-def build(proton, ge, output):
+def build(proton, output):
     pins = json.loads((SOURCE / 'upstream.json').read_text())
-    for name, path in (('proton', proton), ('ge', ge)):
-        if sha256(path) != pins['archives'][name]['sha256']:
-            raise ValueError(f'Unexpected upstream archive: {path}')
     with tempfile.TemporaryDirectory(dir=output.parent) as work:
+        if proton is None:
+            proton = Path(work) / 'Proton-ZLUDA.tar.gz'
+            with urlopen(pins['archive']['url'], timeout=60) as source, proton.open('wb') as archive:
+                shutil.copyfileobj(source, archive)
+        if sha256(proton) != pins['archive']['sha256']:
+            raise ValueError('Proton-ZLUDA archive did not match the pinned SHA-256')
+
         stage = Path(work) / PACKAGE
         stage.mkdir()
         for name in ('Install.sh', 'Install-DeckPhysX.py', 'Build-DeckPhysX.py', 'run', 'README.md',
@@ -84,10 +88,7 @@ def build(proton, ge, output):
         shutil.copytree(SOURCE / 'runtime', stage / 'runtime', ignore=shutil.ignore_patterns('__pycache__'))
 
         with proton.open('rb') as stream:
-            collect(stream, pins['files']['proton'], stage)
-        with zipfile.ZipFile(ge) as archive:
-            with archive.open(pins['archives']['ge']['member']) as stream:
-                collect(stream, pins['files']['ge'], stage)
+            collect(stream, pins['files'], stage)
 
         runtime = stage / 'runtime'
         flags = ['cc', '-O2', '-fPIC', '-shared', '-pthread', '-Wl,--build-id=none']
@@ -107,12 +108,11 @@ def build(proton, ge, output):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--proton', type=Path, required=True, help='Proton-ZLUDA.tar.gz')
-    parser.add_argument('--ge', type=Path, required=True, help='GE-Proton11-7-zluda.zip')
+    parser.add_argument('--proton', type=Path, help='Use a local copy of the pinned release archive')
     parser.add_argument('--output', type=Path, default=Path(PACKAGE + '.tar.gz'))
     options = parser.parse_args()
     try:
-        build(options.proton, options.ge, options.output)
-    except (OSError, ValueError, tarfile.TarError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
+        build(options.proton, options.output)
+    except (OSError, ValueError, tarfile.TarError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'{error}\n')
     print(options.output)
