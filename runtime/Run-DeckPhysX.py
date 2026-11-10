@@ -25,6 +25,7 @@ def bind_file(mount, source, target):
 
 def launch(command, work, app_id, layout):
     game = layout['games'][app_id]
+    options = layout.get('launch_options', {})
     batman = app_id == '35140'
     executable = Path(game['exe'])
     proton = Path(layout['proton'])
@@ -50,7 +51,8 @@ def launch(command, work, app_id, layout):
         raise ValueError('Valve Proton changed. This release requires Proton 11.0-2e.')
 
     command[gi] = str(executable)
-    if '-nostartupmovies' not in (arg.lower() for arg in command[gi+1:]):
+    if options.get('skip_startup_movies', True) and not any(
+            arg.lower() == '-nostartupmovies' for arg in command[gi + 1:]):
         command.append('-nostartupmovies')
     game_dir = executable.parents[1 if batman else 2]
     mount = ['bwrap', '--dev-bind', '/', '/']
@@ -75,11 +77,13 @@ def launch(command, work, app_id, layout):
     env.update(PROTON_USE_WOW64='1', PROTON_ENABLE_ZLUDA='1', PROTON_ENABLE_NVAPI='1',
                PROTON_FORCE_NVAPI='1', DXVK_ENABLE_NVAPI='1', DXVK_NVAPI_ALLOW_OTHER_DRIVERS='1',
                WINEDLLOVERRIDES='nvcuda=b', HSA_OVERRIDE_GFX_VERSION='10.3.0', WINEDEBUG='-all',
-               AMD_CU_MASK='0x3f', MANGOHUD='1',
+               AMD_CU_MASK='0x3f',
                ZLUDA_WINE_BACKEND_PATH=str(backend_dir / 'libcuda.so.1'))
     env.pop('PROTON_DISABLE_NVAPI', None)
     env.pop('CUDA_FAKE_LUID', None)
-    env.setdefault('MANGOHUD_CONFIG', 'fps,frametime')
+    if options.get('show_fps', True):
+        env['MANGOHUD'] = '1'
+        env.setdefault('MANGOHUD_CONFIG', 'fps,frametime')
     if not batman:
         physx = BASE.parent / 'input'
         overlay = work / 'game-dll'

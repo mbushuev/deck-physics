@@ -27,6 +27,10 @@ GAMES = {
     '35140': ('Batman: Arkham Asylum GOTY', 'Binaries/ShippingPC-BmGame.exe'),
     '19680': ('Alice: Madness Returns', 'Binaries/Win32/AliceMadnessReturns.exe'),
 }
+LAUNCH_OPTIONS = {
+    'skip_startup_movies': 'Skip startup videos',
+    'show_fps': 'Show the Deck PhysX FPS counter (MangoHud)',
+}
 PHYSX_NAME = 'PhysX_9.23.1019_SystemSoftware.exe'
 PHYSX_URL = 'https://us.download.nvidia.com/Windows/9.23.1019/' + PHYSX_NAME
 PHYSX_SIZE = 29_417_888
@@ -126,6 +130,38 @@ def batman_has_physx(prefix):
                               for relative, expected in BATMAN_FILES.items())
 
 
+def choose_launch_options(state):
+    previous = state / 'current' / RUNTIME_DIR / 'steam-layout.json'
+    try:
+        saved = json.loads(previous.read_text()).get('launch_options', {})
+    except (OSError, ValueError):
+        saved = {}
+    command = ['kdialog', '--title', 'Deck PhysX Launch Options', '--checklist',
+               'Choose launch options for the games you set up.']
+    for key, label in LAUNCH_OPTIONS.items():
+        command.extend((key, label, 'on' if saved.get(key, True) else 'off'))
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode == 1:
+        return None
+    result.check_returncode()
+    selected = set(shlex.split(result.stdout))
+    return {key: key in selected for key in LAUNCH_OPTIONS}
+
+
+def confirm_physx(game, requirement):
+    message = (f'{game} requires {requirement}.\n\n'
+               'The installer will reuse a verified local copy of NVIDIA PhysX 9.23.1019 '
+               'or download it from NVIDIA (about 29 MB) if needed.\n\n'
+               f'If you skip this step, Deck PhysX cannot launch {game}.')
+    result = subprocess.run(['kdialog', '--title', f'PhysX for {game}',
+                             '--yes-label', f'Set Up {game}', '--no-label', f'Skip {game}',
+                             '--yesno', message], check=False)
+    if result.returncode == 1:
+        return False
+    result.check_returncode()
+    return True
+
+
 def download_physx(destination):
     with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as output:
         pending = Path(output.name)
@@ -160,7 +196,7 @@ def acquire_physx(state):
 def accept_nvidia_terms(archive, state):
     receipt = state / 'accepted-nvidia-license'
     if receipt.is_file() and receipt.read_text().strip() == PHYSX_HASH:
-        return
+        return True
     terms = subprocess.check_output(['7z', 'x', '-so', str(archive), 'EULA.txt'])
     with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=state) as document:
         document.write(terms.decode('cp1252', errors='replace'))
@@ -170,9 +206,11 @@ def accept_nvidia_terms(archive, state):
             '--width=820', '--height=620', '--filename=' + document.name,
             '--checkbox=I have read and accept the NVIDIA license terms',
         ], check=False)
-    if result.returncode != 0:
-        raise RuntimeError('PhysX installation was cancelled.')
+    if result.returncode == 1:
+        return False
+    result.check_returncode()
     receipt.write_text(PHYSX_HASH + '\n')
+    return True
 
 
 def extract_alice_files(archive, directory):
@@ -203,6 +241,31 @@ def install_batman_physx(archive, layout, prefix, state):
         result = subprocess.run(command, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=180)
     if result.returncode or not batman_has_physx(prefix):
         raise RuntimeError(f'PhysX installation failed in the Batman Proton prefix. See {log_path}')
+
+
+def prepare_physx(apps, layout, state, temporary):
+    games = layout['games']
+    alice = find_alice_files(apps, state) if '19680' in games else None
+    batman = Path(games['35140']['prefix']) if '35140' in games else None
+    need_batman = batman is not None and not batman_has_physx(batman)
+    setup_alice = ('19680' in games and alice is None
+                   and confirm_physx('Alice', 'the NVIDIA PhysX 2.8.4.11 files'))
+    setup_batman = (need_batman
+                    and confirm_physx('Batman', 'a registered PhysX 2.8.1 runtime in its Proton prefix'))
+    if setup_alice or setup_batman:
+        archive = acquire_physx(state)
+        if accept_nvidia_terms(archive, state):
+            if setup_alice:
+                alice = extract_alice_files(archive, temporary)
+            if setup_batman:
+                install_batman_physx(archive, layout, batman, state)
+        else:
+            setup_batman = False
+    if alice is None:
+        games.pop('19680', None)
+    if need_batman and not setup_batman:
+        games.pop('35140')
+    return alice
 
 
 def check_payload(bundle):
@@ -252,18 +315,19 @@ def main():
         if subprocess.run(['pgrep', '-x', '|'.join(re.escape(p) for p in processes)],
                           stdout=subprocess.DEVNULL).returncode == 0:
             raise RuntimeError('Close Batman and Alice before running the installer.')
-        alice = find_alice_files(apps, STATE) if '19680' in games else None
-        batman = Path(games['35140']['prefix']) if '35140' in games else None
-        need_batman = batman is not None and not batman_has_physx(batman)
-        need_alice = '19680' in games and alice is None
+        options = choose_launch_options(STATE)
+        if options is None:
+            return
+        layout['launch_options'] = options
+        detected = tuple(games)
         with tempfile.TemporaryDirectory(dir=STATE) as temp:
-            if need_batman or need_alice:
-                archive = acquire_physx(STATE)
-                accept_nvidia_terms(archive, STATE)
-                if need_batman:
-                    install_batman_physx(archive, layout, batman, STATE)
-                if need_alice:
-                    alice = extract_alice_files(archive, Path(temp))
+            alice = prepare_physx(apps, layout, STATE, Path(temp))
+            skipped = '\n'.join(f'Deck PhysX cannot launch {GAMES[app_id][0]} until its PhysX setup is complete.'
+                                for app_id in detected if app_id not in games)
+            if not games:
+                subprocess.run(['kdialog', '--title', 'PhysX for Steam Deck', '--msgbox',
+                                'No games were configured.\n\n' + skipped], check=False)
+                return
             launch = install_release(HERE, STATE, layout, alice, manifest)
 
     names = ', '.join(game['name'] for game in layout['games'].values())
@@ -272,6 +336,8 @@ def main():
                     'Select Proton 11.0 in the Steam properties for each game.\n'
                     'Copy the line below into each game’s Launch Options.\n'
                     'Set PhysX to High in the game settings.')
+    if skipped:
+        instructions += '\n\n' + skipped
     subprocess.run(['kdialog', '--title', 'PhysX for Steam Deck', '--inputbox', instructions, option],
                    stdout=subprocess.DEVNULL, check=False)
 

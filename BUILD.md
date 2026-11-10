@@ -1,6 +1,6 @@
 # Build the Steam Deck installer
 
-Use a Linux x86-64 build host with Python 3.9 or later, a C compiler and GNU-compatible linker. On Steam Deck, installation uses Python 3.11 or later, Bubblewrap, 7-Zip, KDialog and Zenity from SteamOS.
+Use a Linux x86-64 build host with Python 3.9 or later, a C compiler and GNU-compatible linker. See [Requirements](README.md#requirements) for the Steam Deck installation and launch environment.
 
 From a clean checkout, run the builder on a Linux x86-64 host.
 
