@@ -14,7 +14,7 @@ The builder downloads the pinned [Proton-ZLUDA release asset][release], verifies
 
 [`VERSION`](VERSION) records the project version. The installer archive includes that file and the documentation. For version `0.1.0`, the default filename is `DeckPhysX-Proton11-0.1.0.tar.gz`.
 
-The [Build installer](.github/workflows/build.yml) workflow uploads the versioned installer and corresponding source archives with their SHA-256 checksums. A matching tag such as `v0.1.0` on a tested commit from `main` publishes those files as GitHub Release assets. Update `VERSION` and the README version before tagging a new release.
+The [Build installer](.github/workflows/build.yml) workflow uploads two separate artifacts, `DeckPhysX-Proton11` for the installer and `DeckPhysX-Proton11-sources` for the corresponding source archive. Each includes its SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes those files as GitHub Release assets. Update `VERSION` and the README version before tagging a new release.
 
 To build the corresponding source archive on its own, run `python3 Build-DeckPhysX.py --sources-only`. See [third-party software and corresponding source](licenses/SOURCES.md) for its contents and the bundled license notices.
 
