@@ -16,6 +16,8 @@ The builder downloads the pinned [Proton-ZLUDA release asset][release], verifies
 
 The [Build installer](.github/workflows/build.yml) workflow uploads two separate artifacts, `DeckPhysX-Proton11` for the installer and `DeckPhysX-Proton11-sources` for the corresponding source archive. Each includes its SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes those files as GitHub Release assets. Update `VERSION` and the README version before tagging a new release.
 
+After both uploads succeed, Actions keeps the new pair and removes superseded installer and source artifacts from completed runs of this workflow. Tagged builds clean up after publication. Pull requests from forks build the package for verification.
+
 To build the corresponding source archive on its own, run `python3 Build-DeckPhysX.py --sources-only`. See [third-party software and corresponding source](licenses/SOURCES.md) for its contents and the bundled license notices.
 
 ## Sources and updates

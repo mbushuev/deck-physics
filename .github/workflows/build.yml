@@ -10,12 +10,18 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: deck-physx-installer-artifacts
+  queue: max
+
 jobs:
   build:
     runs-on: ubuntu-24.04
     outputs:
       archive: ${{ steps.package.outputs.archive }}
       sources: ${{ steps.package.outputs.sources }}
+      installer_id: ${{ steps.installer.outputs.artifact-id }}
+      sources_id: ${{ steps.sources.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Build the installer and corresponding sources
@@ -28,6 +34,8 @@ jobs:
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
           echo "sources=$sources" >> "$GITHUB_OUTPUT"
       - name: Upload installer
+        id: installer
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: DeckPhysX-Proton11
@@ -37,6 +45,8 @@ jobs:
           if-no-files-found: error
           compression-level: 0
       - name: Upload corresponding sources
+        id: sources
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: DeckPhysX-Proton11-sources
@@ -76,3 +86,47 @@ jobs:
           sha256sum --check "$SOURCES.sha256"
           gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes \
             "$ARCHIVE" "$ARCHIVE.sha256" "$SOURCES" "$SOURCES.sha256"
+
+  cleanup:
+    needs: [build, release]
+    if: >-
+      ${{ !cancelled() && needs.build.result == 'success' &&
+      (needs.release.result == 'success' || needs.release.result == 'skipped') &&
+      needs.build.outputs.installer_id != '' && needs.build.outputs.sources_id != '' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - name: Remove superseded installer artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INSTALLER_ID: ${{ needs.build.outputs.installer_id }}
+          SOURCES_ID: ${{ needs.build.outputs.sources_id }}
+        run: |
+          api="repos/$GITHUB_REPOSITORY/actions"
+          workflow_id=$(gh api "$api/runs/$GITHUB_RUN_ID" --jq '.workflow_id')
+          current=$(gh api --paginate --slurp "$api/runs/$GITHUB_RUN_ID/artifacts?per_page=100")
+          if ! jq -e '
+            [.[].artifacts[] | select(.expired == false)] as $available
+            | any($available[]; .name == "DeckPhysX-Proton11" and (.id | tostring) == env.INSTALLER_ID)
+              and any($available[]; .name == "DeckPhysX-Proton11-sources" and (.id | tostring) == env.SOURCES_ID)
+          ' <<< "$current" >/dev/null; then
+            echo '::error::Both new build artifacts must be available before cleanup.'
+            exit 1
+          fi
+
+          previous=$(gh api --paginate --slurp "$api/artifacts?per_page=100" | jq -r '
+            .[].artifacts[]
+            | select(.name == "DeckPhysX-Proton11" or .name == "DeckPhysX-Proton11-sources")
+            | select(.workflow_run.id != null and (.workflow_run.id | tostring) != env.GITHUB_RUN_ID)
+            | [.workflow_run.id, .id] | @tsv
+          ')
+          while IFS=$'\t' read -r run_id artifact_id; do
+            [[ -n "$artifact_id" ]] || continue
+            run=$(gh api "$api/runs/$run_id" --jq '[.workflow_id, .status] | @tsv')
+            if [[ "$run" == "$workflow_id"$'\t'completed ]]; then
+              gh api --method DELETE "$api/artifacts/$artifact_id"
+              echo "Deleted artifact $artifact_id from run $run_id."
+            fi
+          done <<< "$previous"
