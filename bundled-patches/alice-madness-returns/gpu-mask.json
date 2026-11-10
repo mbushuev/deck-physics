@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "id": "gpu-mask",
+  "app_id": "19680",
+  "title": "Six-CU graphics mask",
+  "description": "Limits graphics shaders to six compute units.",
+  "environment": {
+    "AMD_CU_MASK": "0x3f"
+  }
+}

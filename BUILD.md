@@ -1,6 +1,6 @@
 # Build the Steam Deck installer
 
-Use a build host with Python 3.9 or later. See the [installation requirements](docs/installation.md#requirements) for the Steam Deck environment.
+Use a Linux x86-64 build host with Python 3.9 or later and a C compiler. See the [installation requirements](docs/installation.md#requirements) for the Steam Deck environment.
 
 From a clean checkout, run the builder.
 
@@ -8,7 +8,7 @@ From a clean checkout, run the builder.
 python3 Build-DeckPhysX.py
 ```
 
-The builder downloads the pinned [Proton-ZLUDA release asset][release] and verifies the archive and each selected runtime file against `upstream.json`. Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. The Steam launch uses the Valve compatibility tool selected by the user. PhysX binaries are installed locally on the Deck.
+The builder downloads the pinned [Proton-ZLUDA release asset][release] and verifies the archive and each selected runtime file against `upstream.json`. Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. It builds the HIP wait library from `native/hip-wait-startup.c` and uses `bundled-patches/` to create the optional game patch files. The Steam launch uses the Valve compatibility tool selected by the user. PhysX binaries are installed locally on the Deck.
 
 ## Versions and releases
 

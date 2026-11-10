@@ -23,4 +23,4 @@ The Deck PhysX profile used the graphics mask, cloth collision changes, and bloc
 
 - Uses PhysX 2.8.1.58 from the game's Proton prefix. If the required runtime is missing, the installer offers to set it up separately.
 - The development profile used separate patches for collision bounds, triangle group rejection, and direct triangle and shape reads. The collision patches use a module generated from the installed PhysX library.
-- The graphics mask and blocking HIP waits can be selected independently when their [patch files](../installation.md#optional-game-patches) are supplied.
+- The installer includes separate [optional patches](../installation.md#optional-game-patches) for the graphics mask and blocking HIP waits.

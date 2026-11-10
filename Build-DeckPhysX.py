@@ -9,9 +9,11 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import subprocess
 import tarfile
 import tempfile
 from urllib.request import urlopen
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 
 SOURCE = Path(__file__).resolve().parent
@@ -81,6 +83,32 @@ def bundle(stage, links, output):
                 archive.addfile(reproducible(link))
 
 
+def build_bundled_patches(stage, work):
+    library = work / 'hip-wait-startup.so'
+    source = SOURCE / 'native/hip-wait-startup.c'
+    (stage / 'native').mkdir()
+    shutil.copy2(source, stage / 'native' / source.name)
+    subprocess.run(['cc', '-O2', '-fPIC', '-shared', '-pthread', '-Wl,--build-id=none',
+                    '-o', str(library), str(source), '-ldl'], check=True)
+    binary = library.read_bytes()
+
+    for manifest in sorted((SOURCE / 'bundled-patches').glob('*/*.json')):
+        data = manifest.read_bytes()
+        settings = json.loads(data)
+        source_copy = stage / manifest.relative_to(SOURCE)
+        source_copy.parent.mkdir(parents=True, exist_ok=True)
+        source_copy.write_bytes(data)
+        target = stage / 'patches' / manifest.parent.name / f'{manifest.stem}.deckphysx.zip'
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with ZipFile(target, 'w') as archive:
+            archive.writestr(ZipInfo('patch.json'), data, compress_type=ZIP_DEFLATED)
+            if preload := settings.get('preload'):
+                if preload != library.name:
+                    raise ValueError(f'Unknown bundled patch library: {preload}')
+                archive.writestr(ZipInfo(f'files/{library.name}'), binary,
+                                 compress_type=ZIP_DEFLATED)
+
+
 def build(proton, output):
     pins = json.loads((SOURCE / 'upstream.json').read_text())
     with tempfile.TemporaryDirectory(dir=output.parent) as work:
@@ -102,6 +130,7 @@ def build(proton, output):
 
         with proton.open('rb') as stream:
             collect(stream, pins['files'], stage)
+        build_bundled_patches(stage, Path(work))
 
         runtime = stage / 'runtime'
         manifest = {path.relative_to(stage).as_posix(): sha256(path)
@@ -152,6 +181,6 @@ if __name__ == '__main__':
         else:
             output = options.output or Path(f'{PACKAGE}-{version}.tar.gz')
             build(options.proton, output)
-    except (OSError, ValueError, tarfile.TarError) as error:
+    except (OSError, ValueError, tarfile.TarError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'{error}\n')
     print(output)

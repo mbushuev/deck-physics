@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "id": "blocking-wait",
+  "app_id": "35140",
+  "title": "Blocking GPU waits",
+  "description": "Reduces CPU activity while waiting for GPU work.",
+  "preload": "hip-wait-startup.so"
+}

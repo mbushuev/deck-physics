@@ -18,7 +18,7 @@ To return to a standard Steam launch, clear the Deck PhysX entry from the game's
 
 ## Optional game patches
 
-Copy each game's patch folder into `patches/` beside `Install.sh`.
+The installer includes the optional **Six-CU graphics mask** and **Blocking GPU waits** for each tested game. To add patches, merge each additional game's folder into `patches/` beside `Install.sh`.
 
 ```text
 Install.sh
@@ -27,6 +27,7 @@ patches/
     gpu-mask.deckphysx.zip
     blocking-wait.deckphysx.zip
   alice-madness-returns/
+    gpu-mask.deckphysx.zip
     blocking-wait.deckphysx.zip
 ```
 

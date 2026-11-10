@@ -15,5 +15,5 @@ The optional blocking wait patch uses the same startup wait policy as Batman to 
 ## Profile details
 
 - Uses NVIDIA PhysX 2.8.4.11 and a WoW64 bridge fix for `cuMemFreeHost(NULL)`.
-- The graphics mask and blocking HIP waits can be selected independently when their [patch files](../installation.md#optional-game-patches) are supplied.
+- The installer includes separate [optional patches](../installation.md#optional-game-patches) for the graphics mask and blocking HIP waits.
 - Reuses verified PhysX files already on the Deck. If they are missing, **Set Up Alice** offers NVIDIA PhysX 9.23.1019, about 29 MB if a download is needed. The installer presents the NVIDIA license before using the package. Skipping setup leaves the Alice profile unavailable until its PhysX files are set up.
