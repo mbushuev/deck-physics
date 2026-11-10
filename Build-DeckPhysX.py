@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tarfile
@@ -81,8 +82,9 @@ def build(proton, output):
         stage = Path(work) / PACKAGE
         stage.mkdir()
         for name in ('Install.sh', 'Install-DeckPhysX.py', 'Build-DeckPhysX.py', 'run', 'README.md',
-                     'BUILD.md', 'upstream.json', 'alice-pe32-null-host-free.patch'):
+                     'BUILD.md', 'VERSION', 'upstream.json', 'alice-pe32-null-host-free.patch'):
             shutil.copy2(SOURCE / name, stage / name)
+        shutil.copytree(SOURCE / 'docs', stage / 'docs')
         shutil.copytree(SOURCE / 'licenses', stage / 'licenses')
         shutil.copytree(SOURCE / 'native', stage / 'native')
         shutil.copytree(SOURCE / 'runtime', stage / 'runtime', ignore=shutil.ignore_patterns('__pycache__'))
@@ -100,6 +102,7 @@ def build(proton, output):
         for relative, target in pins['links'].items():
             manifest[relative] = manifest[Path(relative).with_name(target).as_posix()]
         manifest['run'] = sha256(stage / 'run')
+        manifest['VERSION'] = sha256(stage / 'VERSION')
         (stage / 'SHA256.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')
         pending = Path(work) / output.name
         bundle(stage, pins['links'], pending)
@@ -109,10 +112,14 @@ def build(proton, output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--proton', type=Path, help='Use a local copy of the pinned release archive')
-    parser.add_argument('--output', type=Path, default=Path(PACKAGE + '.tar.gz'))
+    parser.add_argument('--output', type=Path, help='Override the versioned installer filename')
     options = parser.parse_args()
     try:
-        build(options.proton, options.output)
+        version = (SOURCE / 'VERSION').read_text(encoding='ascii').strip()
+        if not re.fullmatch(r'(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}', version):
+            raise ValueError('VERSION must contain a version in MAJOR.MINOR.PATCH format')
+        output = options.output or Path(f'{PACKAGE}-{version}.tar.gz')
+        build(options.proton, output)
     except (OSError, ValueError, tarfile.TarError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'{error}\n')
-    print(options.output)
+    print(output)

@@ -1,6 +1,6 @@
 # Build the Steam Deck installer
 
-Use a Linux x86-64 build host with Python 3.9 or later, a C compiler and GNU-compatible linker. See [Requirements](README.md#requirements) for the Steam Deck installation and launch environment.
+Use a Linux x86-64 build host with Python 3.9 or later, a C compiler and GNU-compatible linker. See the [installation requirements](docs/installation.md#requirements) for the Steam Deck environment.
 
 From a clean checkout, run the builder on a Linux x86-64 host.
 
@@ -8,9 +8,13 @@ From a clean checkout, run the builder on a Linux x86-64 host.
 python3 Build-DeckPhysX.py
 ```
 
-The builder downloads the pinned [Proton-ZLUDA release asset][release], verifies the archive and each extracted file against `upstream.json`, and compiles the HIP wait library. The result is `DeckPhysX-Proton11.tar.gz`. Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. The Steam launch uses the Valve compatibility tool selected by the user. PhysX binaries are installed locally on the Deck.
+The builder downloads the pinned [Proton-ZLUDA release asset][release], verifies the archive and each extracted file against `upstream.json`, and compiles the HIP wait library. Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. The Steam launch uses the Valve compatibility tool selected by the user. PhysX binaries are installed locally on the Deck.
 
-The [Build installer](.github/workflows/build.yml) workflow runs the same command and uploads the installer and its SHA-256 checksum. A `v*` tag on a tested commit from `main` publishes both files as GitHub Release assets.
+## Versions and releases
+
+[`VERSION`](VERSION) records the project version. The installer archive includes that file and the documentation. For version `0.1.0`, the default filename is `DeckPhysX-Proton11-0.1.0.tar.gz`.
+
+The [Build installer](.github/workflows/build.yml) workflow uploads the versioned archive and its SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes both files as GitHub Release assets. Update `VERSION` and the README version before tagging a new release.
 
 ## Sources and updates
 
