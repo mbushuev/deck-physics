@@ -25,7 +25,7 @@ def bind_file(mount, source, target):
 
 def launch(command, work, app_id, layout):
     game = layout['games'][app_id]
-    options = layout.get('launch_options', {})
+    options = game.get('launch_options', layout.get('launch_options', {}))
     batman = app_id == '35140'
     executable = Path(game['exe'])
     proton = Path(layout['proton'])

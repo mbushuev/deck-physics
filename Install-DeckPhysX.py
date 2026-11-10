@@ -3,7 +3,6 @@
 
 import fcntl
 import hashlib
-from html import escape
 import json
 import os
 from pathlib import Path
@@ -17,7 +16,8 @@ from urllib.parse import urlsplit
 from urllib.request import urlopen
 from zipfile import BadZipFile
 
-from PatchPackages import checksum as digest, discover_patches, validate_selection
+from PatchDialog import choose_launch_options
+from PatchPackages import checksum as digest
 
 
 HERE = Path(__file__).resolve().parent
@@ -127,58 +127,6 @@ def batman_has_physx(prefix):
                   in registry.read_text(errors='replace'))
     return registered and all(matches(prefix / PHYSX_ROOT / relative, expected)
                               for relative, expected in BATMAN_FILES.items())
-
-
-def choose_launch_options(state, games, patches, issues):
-    previous = state / 'current' / RUNTIME_DIR / 'steam-layout.json'
-    try:
-        saved = json.loads(previous.read_text())
-    except (OSError, ValueError):
-        saved = {}
-    saved_options = saved.get('launch_options', {})
-    saved_patches = {f'{app_id}:{patch["id"]}': patch['sha256']
-                     for app_id, game in saved.get('games', {}).items()
-                     for patch in game.get('patches', ())}
-    message = 'Choose launch options and any game patches you want to install.'
-    if patches:
-        message += '\nSelect patch files you trust. A selected patch may run code during setup or launch.'
-    if issues:
-        message += '\n\nSkipped patch files:\n' + '\n'.join(map(escape, issues))
-    command = [
-        'zenity', '--list', '--checklist', '--title=Deck PhysX Setup', '--width=1050', '--height=460',
-        '--text=' + message,
-        '--column=Enabled', '--column=Game', '--column=Option', '--column=What it does', '--column=ID',
-        '--hide-column=5', '--print-column=5', '--separator=|', '--ok-label=Continue',
-        '--cancel-label=Cancel Setup',
-    ]
-    rows = {key: ('All games', label, description)
-            for key, (_, label, description) in LAUNCH_OPTIONS.items()}
-    for key, patch in patches.items():
-        description = patch.description
-        if patch.requires:
-            dependencies = [patches.get(f'{patch.app_id}:{name}') for name in patch.requires]
-            names = ', '.join(item.title if item else name
-                              for name, item in zip(patch.requires, dependencies))
-            description += f'\nRequires {names}.'
-        rows[key] = (games[patch.app_id]['name'], patch.title, description)
-    selected = {key for key, (default, _, _) in LAUNCH_OPTIONS.items()
-                if saved_options.get(key, default) is True}
-    selected.update(key for key, patch in patches.items() if saved_patches.get(key) == patch.sha256)
-    while True:
-        choices = [value for key, row in rows.items()
-                   for value in ('TRUE' if key in selected else 'FALSE', *row, key)]
-        result = subprocess.run(command + choices, capture_output=True, text=True)
-        if result.returncode == 1:
-            return None
-        result.check_returncode()
-        selected = set(result.stdout.strip().split('|')) & rows.keys()
-        try:
-            validate_selection(patches, selected)
-        except ValueError as error:
-            subprocess.run(['kdialog', '--title', 'Game patches', '--error', str(error)])
-            continue
-        return ({key: key in selected for key in LAUNCH_OPTIONS},
-                [patch for key, patch in patches.items() if key in selected])
 
 
 def confirm_physx(game, requirement):
@@ -356,12 +304,13 @@ def main():
         if subprocess.run(['pgrep', '-x', '|'.join(re.escape(p) for p in processes)],
                           stdout=subprocess.DEVNULL).returncode == 0:
             raise RuntimeError('Close Batman and Alice before running the installer.')
-        patches, issues = discover_patches(HERE / 'patches', games)
-        choices = choose_launch_options(STATE, games, patches, issues)
+        previous = STATE / 'current' / RUNTIME_DIR / 'steam-layout.json'
+        choices = choose_launch_options(previous, games, HERE / 'patches', LAUNCH_OPTIONS)
         if choices is None:
             return
-        options, selected_patches = choices
-        layout['launch_options'] = options
+        game_options, selected_patches = choices
+        for app_id, options in game_options.items():
+            games[app_id]['launch_options'] = options
         detected = tuple(games)
         with tempfile.TemporaryDirectory(dir=STATE) as temp:
             alice = prepare_physx(apps, layout, STATE, Path(temp))

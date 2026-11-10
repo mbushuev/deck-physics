@@ -4,5 +4,6 @@
   "app_id": "19680",
   "title": "Blocking GPU waits",
   "description": "Reduces CPU activity while waiting for GPU work.",
+  "details": "Selects the HIP waiting policy before the first GPU queue is created. CPU threads can sleep while GPU work completes, which can reduce power draw.",
   "preload": "hip-wait-startup.so"
 }

@@ -35,7 +35,8 @@ class PatchPackagesTest(unittest.TestCase):
         return path
 
     def test_only_selected_patches_are_installed_for_each_game(self):
-        self.make_patch('alice', '19680', 'example', environment={'EXAMPLE': 'alice'})
+        self.make_patch('alice', '19680', 'example', environment={'EXAMPLE': 'alice'},
+                        details='First line.\nSecond line.')
         self.make_patch('renamed-batman-folder', '35140', 'example', {
             'files/prepare.py': 'from pathlib import Path\nimport sys\n'
                                 'Path("generated").write_text(sys.argv[1])\n',
@@ -43,6 +44,8 @@ class PatchPackagesTest(unittest.TestCase):
         patches, issues = discover_patches(self.folder, self.games)
         self.assertEqual(issues, [])
         self.assertEqual(set(patches), {'35140:example', '19680:example'})
+        self.assertEqual(patches['19680:example'].details, 'First line.\nSecond line.')
+        self.assertEqual(patches['35140:example'].details, '')
 
         state = self.root / 'state'
         state.mkdir()

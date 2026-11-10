@@ -55,6 +55,7 @@ class Patch:
     id: str
     title: str
     description: str
+    details: str
     requires: tuple
     environment: dict
     file_environment: dict
@@ -106,7 +107,7 @@ def read_patch(path):
         source.seek(0)
         sha256 = hashlib.file_digest(source, 'sha256').hexdigest()
     required = {'format', 'id', 'app_id', 'title', 'description'}
-    optional = {'requires', 'environment', 'file_environment', 'preload', 'prepare'}
+    optional = {'details', 'requires', 'environment', 'file_environment', 'preload', 'prepare'}
     if (not isinstance(info, dict) or not required <= info.keys() <= required | optional
             or type(info['format']) is not int or info['format'] != 1):
         raise ValueError('Unsupported patch manifest')
@@ -115,6 +116,9 @@ def read_patch(path):
         raise ValueError('Invalid patch title, description or ID')
     if not PATCH_ID.fullmatch(info['id']) or not re.fullmatch(r'[1-9][0-9]*', info['app_id']):
         raise ValueError('Invalid patch or Steam App ID')
+    details = info.get('details', '')
+    if not isinstance(details, str) or any(c != '\n' and not c.isprintable() for c in details):
+        raise ValueError('Invalid patch details')
     requires = info.get('requires', [])
     if not isinstance(requires, list) or any(
             not isinstance(key, str) or not PATCH_ID.fullmatch(key) or key == info['id'] for key in requires):
@@ -135,7 +139,7 @@ def read_patch(path):
                                 or 'files/' + prepare not in files):
         raise ValueError('Missing or invalid preparation script')
     return Patch(path, sha256, info['app_id'], info['id'], info['title'], info['description'],
-                 tuple(requires), environment, file_environment, preload, prepare)
+                 details.strip(), tuple(requires), environment, file_environment, preload, prepare)
 
 
 def discover_patches(folder, games):

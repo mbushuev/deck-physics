@@ -121,8 +121,9 @@ def build(proton, output):
 
         stage = Path(work) / PACKAGE
         stage.mkdir()
-        for name in ('Install.sh', 'Install-DeckPhysX.py', 'PatchPackages.py', 'Build-DeckPhysX.py', 'run',
-                     'README.md', 'BUILD.md', 'VERSION', 'upstream.json', 'alice-pe32-null-host-free.patch'):
+        for name in ('Install.sh', 'Install-DeckPhysX.py', 'PatchDialog.py', 'PatchPackages.py',
+                     'Build-DeckPhysX.py', 'run', 'README.md', 'BUILD.md', 'VERSION', 'upstream.json',
+                     'alice-pe32-null-host-free.patch'):
             shutil.copy2(SOURCE / name, stage / name)
         shutil.copytree(SOURCE / 'docs', stage / 'docs')
         shutil.copytree(SOURCE / 'licenses', stage / 'licenses')

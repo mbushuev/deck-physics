@@ -38,6 +38,7 @@ A `.deckphysx.zip` file in `patches/<game>/` contains `patch.json` and an option
 `format`, `id`, `app_id`, `title` and `description` are required. IDs use lowercase letters, digits and hyphens and must be unique per game. Optional fields apply only when the patch is selected.
 
 - `requires` lists other patch IDs that must also be selected for the same game.
+- `details` provides additional plain text for the patch details panel. Line breaks are supported.
 - `environment` supplies launch environment variables. Enabled patches for one game must use distinct variable names.
 - `file_environment` supplies environment variables pointing to files relative to the extracted payload. Paths use `/` and cannot traverse outside the payload.
 - `preload` is the relative path to a Linux shared library from the payload.

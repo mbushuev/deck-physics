@@ -4,6 +4,7 @@
   "app_id": "19680",
   "title": "Six-CU graphics mask",
   "description": "Limits graphics shaders to six compute units.",
+  "details": "Limits RADV graphics shaders to six of the Deck's eight compute units. The physics compute queue can still use all eight. This can reduce contention when graphics and physics run at the same time.",
   "environment": {
     "AMD_CU_MASK": "0x3f"
   }
