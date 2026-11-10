@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.tar.gz
+*.zip
+*.fatbin
+*.dll
+*.exe
+*.so
+*.so.*
+*.log
+steam-layout.json

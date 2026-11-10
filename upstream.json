@@ -1,0 +1,88 @@
+{
+  "archives": {
+    "proton": {
+      "sha256": "b9c1081f2283e2903e6585d0a1010b7361709c4aa435513c31f54d3aa68ff4d5",
+      "run": 42497068005
+    },
+    "ge": {
+      "sha256": "1464d836f3fd12122e89c6aa33376a390fb04a6aa2c6c40189ba761028b49adb",
+      "run": 40906607864,
+      "member": "GE-Proton11-7-zluda.tar.gz"
+    }
+  },
+  "files": {
+    "proton": {
+      "runtime/valve11-addon/lib/libamd_comgr.so.3.0.0": {
+        "member": "files/lib64/libamd_comgr.so.3.0.0",
+        "sha256": "f893a0e750947d11c5ee8d77c7ae6de80d5c04b4f4c31ba3ff4d2df6de4bff79"
+      },
+      "runtime/valve11-addon/lib/libamdhip64.so.7.2.70204": {
+        "member": "files/lib64/libamdhip64.so.7.2.70204",
+        "sha256": "f1043337461c8e54ee135e95fa979a7d0e4344676ad5b0554652f844f8f098ac"
+      },
+      "runtime/valve11-addon/lib/libhiprtc-builtins.so.7.2.70204": {
+        "member": "files/lib64/libhiprtc-builtins.so.7.2.70204",
+        "sha256": "628951d9b5e45de16098b3515757dfcd18ade7db20f75173399fb3a4bb08685d"
+      },
+      "runtime/valve11-addon/lib/libhiprtc.so.7.2.70204": {
+        "member": "files/lib64/libhiprtc.so.7.2.70204",
+        "sha256": "3ba48d6bdd3a404011107cac625204e239af3fee426ad6a0ef6a4dc6d32995ae"
+      },
+      "runtime/valve11-addon/lib/libhsa-runtime64.so.1.18.70204": {
+        "member": "files/lib64/libhsa-runtime64.so.1.18.70204",
+        "sha256": "b8cdfe93d343649a35c1daf73a0a3a6840f09379ebeee9be65670461ffea43f4"
+      },
+      "runtime/valve11-addon/lib/librocm-core.so.1.0.70204": {
+        "member": "files/lib64/librocm-core.so.1.0.70204",
+        "sha256": "c653688c70bcfc4b376e60edddb4df2e1b09cbebe248d23070a63306e80e4a42"
+      },
+      "runtime/valve11-addon/lib/librocprofiler-register.so.0.6.0": {
+        "member": "files/lib64/librocprofiler-register.so.0.6.0",
+        "sha256": "1a23a2b5a62dc7feee9259b9a307bca94caef7cfbaebc7b1b20a0289ed7e69f0"
+      },
+      "runtime/valve11-legacy/files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll": {
+        "member": "files/lib/wine-cuda/zluda/i386-windows/nvcuda.dll",
+        "sha256": "c3da2f9b2d3e8e0141e946ae254a5eead96574a17f2570da1534160670ff3ac1"
+      },
+      "runtime/valve11-legacy/files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so": {
+        "member": "files/lib/wine-cuda/zluda/x86_64-unix/nvcuda.so",
+        "sha256": "cae6710212ec0bc763771d8b1061a50bac25b589efe2556ccee24a1eb93847c4"
+      },
+      "runtime/valve11-legacy/files/lib/wine-cuda/zluda/x86_64-windows/nvcuda.dll": {
+        "member": "files/lib/wine-cuda/zluda/x86_64-windows/nvcuda.dll",
+        "sha256": "816546a07f16e25374ef2d65cd3af1e26bc2f3824b62308852d4a90505086ccf"
+      },
+      "runtime/valve11-legacy/files/lib/wine/nvapi/i386-windows/nvapi.dll": {
+        "member": "files/lib/wine/nvapi/i386-windows/nvapi.dll",
+        "sha256": "7ac7341141e77ace311c9cfd2b2103b8b7aebedbb85a8f397357da9fb54742c4"
+      },
+      "runtime/valve11-legacy/files/lib/wine/nvapi/x86_64-windows/nvapi64.dll": {
+        "member": "files/lib/wine/nvapi/x86_64-windows/nvapi64.dll",
+        "sha256": "76f012dc873ee0f08d368e22828fe7bdb065f1e7b86ca6bc4baf1fbe9d81530d"
+      },
+      "runtime/valve11-legacy/files/lib/wine/x86_64-unix/ntdll.so": {
+        "member": "files/lib/wine/x86_64-unix/ntdll.so",
+        "sha256": "1047f1e5bfd8083dbfd700d1903ac6bce40bc7565a8ef7ecdfce81591920f6ae"
+      },
+      "runtime/valve11-legacy/files/lib64/libcuda.so.1": {
+        "member": "files/lib64/libcuda.so.1",
+        "sha256": "8db4063013f9d8c751c0caaa3374a350f38c8f6aeb6571f455c7239f0901d9af"
+      }
+    },
+    "ge": {
+      "runtime/valve11-addon/lib/libnuma.so.1": {
+        "member": "files/lib64/libnuma.so.1",
+        "sha256": "21b887715728f09ac4d4a1e4abe31ed1843dba9ac95461dfe55bdfec55cac0ac"
+      }
+    }
+  },
+  "links": {
+    "runtime/valve11-addon/lib/libamdhip64.so.7": "libamdhip64.so.7.2.70204",
+    "runtime/valve11-addon/lib/librocprofiler-register.so.0": "librocprofiler-register.so.0.6.0",
+    "runtime/valve11-addon/lib/libamd_comgr.so.3": "libamd_comgr.so.3.0.0",
+    "runtime/valve11-addon/lib/libhsa-runtime64.so.1": "libhsa-runtime64.so.1.18.70204",
+    "runtime/valve11-addon/lib/libhiprtc-builtins.so.7": "libhiprtc-builtins.so.7.2.70204",
+    "runtime/valve11-addon/lib/librocm-core.so.1": "librocm-core.so.1.0.70204",
+    "runtime/valve11-addon/lib/libhiprtc.so.7": "libhiprtc.so.7.2.70204"
+  }
+}
