@@ -3,6 +3,7 @@
 
 import fcntl
 import hashlib
+from html import escape
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,9 @@ import sys
 import tempfile
 from urllib.parse import urlsplit
 from urllib.request import urlopen
+from zipfile import BadZipFile
+
+from PatchPackages import checksum as digest, discover_patches, validate_selection
 
 
 HERE = Path(__file__).resolve().parent
@@ -30,8 +34,6 @@ GAMES = {
 LAUNCH_OPTIONS = {
     'skip_startup_movies': (True, 'Skip intro videos', 'Skip videos before the main menu.'),
     'show_fps': (True, 'Show FPS counter', 'Show FPS and frame time with MangoHud.'),
-    'performance_optimizations': (False, 'Optimize performance and battery use',
-                                  'Tune GPU scheduling and reduce CPU activity while waiting.'),
 }
 PHYSX_NAME = 'PhysX_9.23.1019_SystemSoftware.exe'
 PHYSX_URL = 'https://us.download.nvidia.com/Windows/9.23.1019/' + PHYSX_NAME
@@ -57,11 +59,6 @@ BATMAN_FILES = {
     'Common/PhysXLoader.dll':
         'eb7dac7ba3520fc57ad34f9c7da893055e44bdb1753ad824525a0114b0e1c211',
 }
-
-
-def digest(path):
-    with path.open('rb') as source:
-        return hashlib.file_digest(source, 'sha256').hexdigest()
 
 
 def matches(path, expected):
@@ -132,28 +129,56 @@ def batman_has_physx(prefix):
                               for relative, expected in BATMAN_FILES.items())
 
 
-def choose_launch_options(state):
+def choose_launch_options(state, games, patches, issues):
     previous = state / 'current' / RUNTIME_DIR / 'steam-layout.json'
     try:
-        saved = json.loads(previous.read_text()).get('launch_options', {})
+        saved = json.loads(previous.read_text())
     except (OSError, ValueError):
         saved = {}
+    saved_options = saved.get('launch_options', {})
+    saved_patches = {f'{app_id}:{patch["id"]}': patch['sha256']
+                     for app_id, game in saved.get('games', {}).items()
+                     for patch in game.get('patches', ())}
+    message = 'Choose launch options and any game patches you want to install.'
+    if patches:
+        message += '\nSelect patch files you trust. A selected patch may run code during setup or launch.'
+    if issues:
+        message += '\n\nSkipped patch files:\n' + '\n'.join(map(escape, issues))
     command = [
-        'zenity', '--list', '--checklist', '--title=Deck PhysX Setup', '--width=800', '--height=340',
-        '--text=Choose which options to apply to your configured games. Run the installer again '
-        'to change your choices.',
-        '--column=Enabled', '--column=Launch option', '--column=What it does', '--column=ID',
-        '--hide-column=4', '--print-column=4', '--separator=|', '--ok-label=Continue',
+        'zenity', '--list', '--checklist', '--title=Deck PhysX Setup', '--width=1050', '--height=460',
+        '--text=' + message,
+        '--column=Enabled', '--column=Game', '--column=Option', '--column=What it does', '--column=ID',
+        '--hide-column=5', '--print-column=5', '--separator=|', '--ok-label=Continue',
         '--cancel-label=Cancel Setup',
     ]
-    for key, (default, label, description) in LAUNCH_OPTIONS.items():
-        command.extend(('TRUE' if saved.get(key, default) is True else 'FALSE', label, description, key))
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode == 1:
-        return None
-    result.check_returncode()
-    selected = set(result.stdout.strip().split('|'))
-    return {key: key in selected for key in LAUNCH_OPTIONS}
+    rows = {key: ('All games', label, description)
+            for key, (_, label, description) in LAUNCH_OPTIONS.items()}
+    for key, patch in patches.items():
+        description = patch.description
+        if patch.requires:
+            dependencies = [patches.get(f'{patch.app_id}:{name}') for name in patch.requires]
+            names = ', '.join(item.title if item else name
+                              for name, item in zip(patch.requires, dependencies))
+            description += f'\nRequires {names}.'
+        rows[key] = (games[patch.app_id]['name'], patch.title, description)
+    selected = {key for key, (default, _, _) in LAUNCH_OPTIONS.items()
+                if saved_options.get(key, default) is True}
+    selected.update(key for key, patch in patches.items() if saved_patches.get(key) == patch.sha256)
+    while True:
+        choices = [value for key, row in rows.items()
+                   for value in ('TRUE' if key in selected else 'FALSE', *row, key)]
+        result = subprocess.run(command + choices, capture_output=True, text=True)
+        if result.returncode == 1:
+            return None
+        result.check_returncode()
+        selected = set(result.stdout.strip().split('|')) & rows.keys()
+        try:
+            validate_selection(patches, selected)
+        except ValueError as error:
+            subprocess.run(['kdialog', '--title', 'Game patches', '--error', str(error)])
+            continue
+        return ({key: key in selected for key in LAUNCH_OPTIONS},
+                [patch for key, patch in patches.items() if key in selected])
 
 
 def confirm_physx(game, requirement):
@@ -284,7 +309,11 @@ def check_payload(bundle):
     return manifest
 
 
-def install_release(bundle, state, layout, alice, manifest):
+def install_release(bundle, state, layout, alice, manifest, patches):
+    games = layout['games']
+    patches = [patch for patch in patches if patch.app_id in games]
+    for patch in patches:
+        games[patch.app_id].setdefault('patches', []).append(patch.launch_settings())
     encoded = json.dumps(layout, sort_keys=True)
     identifier = hashlib.sha256((encoded + json.dumps(manifest, sort_keys=True)).encode()).hexdigest()
     release = state / ('release-' + identifier[:16])
@@ -299,6 +328,10 @@ def install_release(bundle, state, layout, alice, manifest):
                     target = stage / 'deck-runtime/input' / relative
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(file, target)
+            for patch in patches:
+                root = stage / RUNTIME_DIR / 'patches' / patch.app_id
+                root.mkdir(parents=True, exist_ok=True)
+                patch.install(root / patch.id, games[patch.app_id])
             os.replace(stage, release)
     with tempfile.TemporaryDirectory(dir=state) as work:
         pointer = Path(work) / 'current'
@@ -323,9 +356,11 @@ def main():
         if subprocess.run(['pgrep', '-x', '|'.join(re.escape(p) for p in processes)],
                           stdout=subprocess.DEVNULL).returncode == 0:
             raise RuntimeError('Close Batman and Alice before running the installer.')
-        options = choose_launch_options(STATE)
-        if options is None:
+        patches, issues = discover_patches(HERE / 'patches', games)
+        choices = choose_launch_options(STATE, games, patches, issues)
+        if choices is None:
             return
+        options, selected_patches = choices
         layout['launch_options'] = options
         detected = tuple(games)
         with tempfile.TemporaryDirectory(dir=STATE) as temp:
@@ -336,13 +371,13 @@ def main():
                 subprocess.run(['kdialog', '--title', 'PhysX for Steam Deck', '--msgbox',
                                 'No games were configured.\n\n' + skipped], check=False)
                 return
-            launch = install_release(HERE, STATE, layout, alice, manifest)
+            launch = install_release(HERE, STATE, layout, alice, manifest, selected_patches)
 
     names = ', '.join(game['name'] for game in layout['games'].values())
     option = shlex.quote(str(launch)) + ' %command%'
-    optimizations = 'on' if options['performance_optimizations'] else 'off'
+    patch_count = sum(len(game.get('patches', ())) for game in layout['games'].values())
     instructions = (f'Installed for {names}.\n'
-                    f'Performance and battery optimizations are {optimizations}.\n\n'
+                    f'Enabled game patches: {patch_count}.\n\n'
                     'Select Proton 11.0 in the Steam properties for each game.\n'
                     'Copy the line below into each game’s Launch Options.\n'
                     'Set PhysX to High in the game settings.')
@@ -355,7 +390,7 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+    except (OSError, ValueError, RuntimeError, BadZipFile, subprocess.SubprocessError) as error:
         print(error, file=sys.stderr)
         if shutil.which('kdialog'):
             subprocess.run(['kdialog', '--error', str(error)], check=False)

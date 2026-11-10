@@ -26,7 +26,6 @@ def bind_file(mount, source, target):
 def launch(command, work, app_id, layout):
     game = layout['games'][app_id]
     options = layout.get('launch_options', {})
-    optimize = options.get('performance_optimizations') is True
     batman = app_id == '35140'
     executable = Path(game['exe'])
     proton = Path(layout['proton'])
@@ -84,8 +83,19 @@ def launch(command, work, app_id, layout):
     if options.get('show_fps', True):
         env['MANGOHUD'] = '1'
         env.setdefault('MANGOHUD_CONFIG', 'fps,frametime')
-    if optimize:
-        env['AMD_CU_MASK'] = '0x3f'
+    preloads = []
+    for patch in game.get('patches', ()):
+        root = BASE / 'patches' / app_id / patch['id']
+        files = {key: root / name for key, name in patch['file_environment'].items()}
+        required = list(files.values())
+        if patch['preload']:
+            preload = root / patch['preload']
+            required.append(preload)
+            preloads.append(str(preload))
+        if any(not path.is_file() for path in required):
+            raise ValueError(f'Files for {patch["id"]} are missing. Re-run the installer.')
+        env.update(patch['environment'])
+        env.update({key: str(path) for key, path in files.items()})
     if not batman:
         physx = BASE.parent / 'input'
         overlay = work / 'game-dll'
@@ -100,13 +110,12 @@ def launch(command, work, app_id, layout):
     proton_lib = proton / 'files/lib/i386-linux-gnu'
     env['LD_LIBRARY_PATH'] = str(proton_lib) + ':' + env.get('LD_LIBRARY_PATH', '')
     libs = f'{backend_dir}:{BASE / "valve11-addon/lib"}'
-    preload = str(BASE / 'hip-wait-startup.so') if optimize else ''
     command[pi:pi] = [
         '/bin/sh', '-c',
         'export LD_LIBRARY_PATH="$1${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"; '
         'if [ -n "$2" ]; then export LD_PRELOAD="$2${LD_PRELOAD:+:$LD_PRELOAD}"; fi; '
         'shift 2; exec "$@"',
-        'deck-physx-runtime', libs, preload,
+        'deck-physx-runtime', libs, ':'.join(preloads),
     ]
     with (RELEASE / f'launch-{app_id}.log').open('w') as log:
         return subprocess.call(mount + ['--'] + command, env=env, stdout=log, stderr=subprocess.STDOUT)

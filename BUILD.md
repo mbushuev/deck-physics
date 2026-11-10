@@ -1,14 +1,14 @@
 # Build the Steam Deck installer
 
-Use a Linux x86-64 build host with Python 3.9 or later, a C compiler and GNU-compatible linker. See the [installation requirements](docs/installation.md#requirements) for the Steam Deck environment.
+Use a build host with Python 3.9 or later. See the [installation requirements](docs/installation.md#requirements) for the Steam Deck environment.
 
-From a clean checkout, run the builder on a Linux x86-64 host.
+From a clean checkout, run the builder.
 
 ```sh
 python3 Build-DeckPhysX.py
 ```
 
-The builder downloads the pinned [Proton-ZLUDA release asset][release], verifies the archive and each extracted file against `upstream.json`, and compiles the HIP wait library. Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. The Steam launch uses the Valve compatibility tool selected by the user. PhysX binaries are installed locally on the Deck.
+The builder downloads the pinned [Proton-ZLUDA release asset][release] and verifies the archive and each selected runtime file against `upstream.json`. Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. The Steam launch uses the Valve compatibility tool selected by the user. PhysX binaries are installed locally on the Deck.
 
 ## Versions and releases
 
@@ -19,6 +19,29 @@ The [Build installer](.github/workflows/build.yml) workflow uploads two separate
 After both uploads succeed, Actions keeps the new pair and removes superseded installer and source artifacts from completed runs of this workflow. Tagged builds clean up after publication. Pull requests from forks build the package for verification.
 
 To build the corresponding source archive on its own, run `python3 Build-DeckPhysX.py --sources-only`. See [third-party software and corresponding source](licenses/SOURCES.md) for its contents and the bundled license notices.
+
+## Game patch format
+
+A `.deckphysx.zip` file in `patches/<game>/` contains `patch.json` and an optional `files/` payload. Each archive describes one patch for one Steam App ID.
+
+```json
+{
+  "format": 1,
+  "id": "gpu-mask",
+  "app_id": "35140",
+  "title": "Six-CU graphics mask",
+  "description": "Limits graphics shaders to six compute units.",
+  "environment": {"AMD_CU_MASK": "0x3f"}
+}
+```
+
+`format`, `id`, `app_id`, `title` and `description` are required. IDs use lowercase letters, digits and hyphens and must be unique per game. Optional fields apply only when the patch is selected.
+
+- `requires` lists other patch IDs that must also be selected for the same game.
+- `environment` supplies launch environment variables. Enabled patches for one game must use distinct variable names.
+- `file_environment` supplies environment variables pointing to files relative to the extracted payload. Paths use `/` and cannot traverse outside the payload.
+- `preload` is the relative path to a Linux shared library from the payload.
+- `prepare` is the relative path to a Python script in the payload. The installer runs it in the patch directory with the Proton prefix and game executable paths as positional arguments. It can generate files referenced by `file_environment` or `preload`.
 
 ## Sources and updates
 

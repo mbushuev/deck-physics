@@ -9,7 +9,6 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
-import subprocess
 import tarfile
 import tempfile
 from urllib.request import urlopen
@@ -94,22 +93,17 @@ def build(proton, output):
 
         stage = Path(work) / PACKAGE
         stage.mkdir()
-        for name in ('Install.sh', 'Install-DeckPhysX.py', 'Build-DeckPhysX.py', 'run', 'README.md',
-                     'BUILD.md', 'VERSION', 'upstream.json', 'alice-pe32-null-host-free.patch'):
+        for name in ('Install.sh', 'Install-DeckPhysX.py', 'PatchPackages.py', 'Build-DeckPhysX.py', 'run',
+                     'README.md', 'BUILD.md', 'VERSION', 'upstream.json', 'alice-pe32-null-host-free.patch'):
             shutil.copy2(SOURCE / name, stage / name)
         shutil.copytree(SOURCE / 'docs', stage / 'docs')
         shutil.copytree(SOURCE / 'licenses', stage / 'licenses')
-        shutil.copytree(SOURCE / 'native', stage / 'native')
         shutil.copytree(SOURCE / 'runtime', stage / 'runtime', ignore=shutil.ignore_patterns('__pycache__'))
 
         with proton.open('rb') as stream:
             collect(stream, pins['files'], stage)
 
         runtime = stage / 'runtime'
-        flags = ['cc', '-O2', '-fPIC', '-shared', '-pthread', '-Wl,--build-id=none']
-        subprocess.run(flags + ['-o', str(runtime / 'hip-wait-startup.so'),
-                                str(SOURCE / 'native/hip-wait-startup.c'), '-ldl'], check=True)
-
         manifest = {path.relative_to(stage).as_posix(): sha256(path)
                     for path in sorted((stage / 'runtime').rglob('*')) if path.is_file()}
         for relative, target in pins['links'].items():
@@ -158,6 +152,6 @@ if __name__ == '__main__':
         else:
             output = options.output or Path(f'{PACKAGE}-{version}.tar.gz')
             build(options.proton, output)
-    except (OSError, ValueError, tarfile.TarError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, tarfile.TarError) as error:
         parser.exit(1, f'{error}\n')
     print(output)
