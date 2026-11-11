@@ -123,7 +123,7 @@ def build(proton, output):
 
         stage = Path(work) / PACKAGE
         stage.mkdir()
-        for name in ('Install.sh', 'README.md', 'VERSION', 'CHANGELOG.md'):
+        for name in ('Install.sh', 'README.md', 'VERSION', 'CHANGELOG.md', 'LICENSE'):
             shutil.copy2(SOURCE / name, stage / name)
         for name in ('installer', 'docs', 'licenses', 'runtime'):
             shutil.copytree(SOURCE / name, stage / name, ignore=shutil.ignore_patterns('__pycache__'))

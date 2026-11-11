@@ -2,6 +2,8 @@
 
 The installer includes selected files from the pinned [Proton-ZLUDA release](https://github.com/chkuendig/Proton-ZLUDA/releases/tag/proton-zluda-11.0-20261108-799caed8). The installer archive carries third-party notices under `licenses/`.
 
+The MIT License included with Deck Physics applies to its original code. Third-party code, patches to third-party components, and bundled binaries follow the licenses of their respective components.
+
 ## Corresponding source archive
 
 The source archive accompanying the installer contains the following inputs for its LGPL components.

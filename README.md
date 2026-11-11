@@ -23,6 +23,10 @@ The game list shows the available profiles and marks detected Steam installation
 
 Run `Install.sh` again to set up another game or update its settings.
 
+## License
+
+The original Deck Physics code is available under the [MIT License](LICENSE). Third-party components retain their respective licenses. See the [third-party notices](licenses/SOURCES.md).
+
 ## Acknowledgments
 
 Deck Physics builds on Christian's work across [Proton-ZLUDA](https://github.com/chkuendig/Proton-ZLUDA), [zluda-wine](https://github.com/chkuendig/zluda-wine), [ZLUDA](https://github.com/chkuendig/ZLUDA), and [llvm-project](https://github.com/chkuendig/llvm-project). See [upstream sources](docs/build.md#sources-and-updates) for the exact revisions.
