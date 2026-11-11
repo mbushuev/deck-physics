@@ -1,13 +1,13 @@
 # Tested compatibility
 
-| Game profile | Steam App ID | Startup validation on Steam Deck OLED |
-| --- | --- | --- |
-| [Batman: Arkham Asylum GOTY](batman-arkham-asylum-goty.md) | 35140 | Passed |
-| [Alice: Madness Returns](alice-madness-returns.md) | 19680 | Passed |
+| Game profile | Steam App ID | Startup on Steam Deck OLED | Performance reference |
+| --- | --- | --- | --- |
+| [Batman: Arkham Asylum GOTY](batman-arkham-asylum-goty.md) | 35140 | Passed | **82.63 FPS** in the built-in benchmark with the graphics mask |
+| [Alice: Madness Returns](alice-madness-returns.md) | 19680 | Passed | **77.05 FPS** in a Ruin encounter with the graphics mask |
 
-Startup validation used SteamOS 3.9.5 in Desktop Mode with Valve Proton 11.0-2e and Steam Linux Runtime 4. Both games reached the title screen with intro skipping and the FPS counter enabled, then again with both settings disabled. The per-game pages record gameplay performance from development builds separately.
+Startup validation used SteamOS 3.9.5 in Desktop Mode with Valve Proton 11.0-2e and Steam Linux Runtime 4. Both games reached the title screen with intro skipping and the FPS counter enabled, then again with both settings disabled. The FPS values are averages from separate development tests with PhysX High. Each game page records the scene, settings, and patch configuration.
 
-The installer configures the profiles listed here. Other titles may work with the upstream compatibility stack. They are outside the current validation coverage. More profiles will be added as games are tested and tuned on Deck.
+The installer configures the profiles listed here. Other titles may work with the upstream compatibility stack and have yet to be validated on Deck.
 
 See the [installation guide](../installation.md) for setup requirements.
 

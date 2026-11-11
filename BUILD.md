@@ -1,6 +1,6 @@
 # Build the Steam Deck installer
 
-Use a Linux x86-64 build host with Python 3.9 or later and a C compiler. See the [installation requirements](docs/installation.md#requirements) for the Steam Deck environment.
+Use a Linux x86-64 build host with Python 3.9 or later, a C compiler, and a GNU-compatible linker. See the [installation requirements](docs/installation.md#requirements) for the Steam Deck environment.
 
 From a clean checkout, run the builder.
 
@@ -14,11 +14,11 @@ The builder downloads the pinned [Proton-ZLUDA release asset][release] and verif
 
 [`VERSION`](VERSION) records the project version. The installer archive includes that file and the documentation. For version `0.1.0`, the default filename is `DeckPhysics-Proton11-0.1.0.tar.gz`.
 
-The [Build installer](.github/workflows/build.yml) workflow uploads two separate artifacts, `DeckPhysics-Proton11-0.1.0` for the installer and `DeckPhysics-Proton11-0.1.0-sources` for the corresponding source archive. Both artifact names are derived from `VERSION`. Each includes its SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes those files as GitHub Release assets. Update `VERSION` and the README version before tagging a new release.
+The **Build installer** workflow in GitHub Actions uploads separate versioned ZIP downloads for the installer and the corresponding source archive. Each ZIP contains its `.tar.gz` and SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes the two `.tar.gz` files and their checksums as GitHub Release assets. Update `VERSION` and the README version before tagging a new release.
 
 After both uploads succeed, Actions keeps the new pair and removes superseded installer and source artifacts from completed runs of this workflow. Tagged builds clean up after publication. Pull requests from forks build the package for verification.
 
-To build the corresponding source archive on its own, run `python3 Build-DeckPhysics.py --sources-only`. See [third-party software and corresponding source](licenses/SOURCES.md) for its contents and the bundled license notices.
+To build the corresponding source archive on its own, run `python3 Build-DeckPhysics.py --sources-only`. That archive contains the [source inputs for bundled LGPL components](licenses/SOURCES.md). Use a checkout of this repository to build the installer itself.
 
 ## Game patch format
 
@@ -35,7 +35,7 @@ A `.deckphysx.zip` file in `patches/<game>/` contains `patch.json` and an option
 }
 ```
 
-`format`, `id`, `app_id`, `title` and `description` are required. IDs use lowercase letters, digits and hyphens and must be unique per game. Optional fields apply only when the patch is selected.
+`format`, `id`, `app_id`, `title`, and `description` are required. Use the integer `1` for `format` and a string for the numeric Steam App ID. Patch IDs consist of lowercase letters and digits with optional hyphen separators. Each ID must be unique per game. Optional fields apply only when the patch is selected.
 
 - `requires` lists other patch IDs that must also be selected for the same game.
 - `details` provides additional plain text for the patch details panel. Line breaks are supported.
