@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="52" viewBox="0 0 240 52" role="img" aria-labelledby="title">
+  <title id="title">Download Installer</title>
+  <rect width="240" height="52" rx="8" fill="#CAFF43"/>
+  <path d="M28 15v16m-6-6 6 6 6-6M20 32v5h16v-5" fill="none" stroke="#161814" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="51" y="33" fill="#161814" font-family="system-ui, Arial, sans-serif" font-weight="700" font-size="19">Download Installer</text>
+</svg>

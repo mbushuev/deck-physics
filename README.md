@@ -1,5 +1,7 @@
 [![Deck Physics 0.1.0](.github/artwork/releases/deck-physics-0.1.0.svg)](https://github.com/mbushuev/deck-physics/releases/latest)
 
+[![Download Installer](docs/media/download-installer.svg)](https://github.com/mbushuev/deck-physics/releases/latest/download/DeckPhysics-Installer.tar.gz)
+
 Deck Physics sets up performance profiles for classic games on Steam Deck. Configure launch options and optional performance and battery patches for each game.
 
 **Version [0.1.0](VERSION)** · [Installation](docs/installation.md) · [Tested compatibility](docs/compatibility/README.md) · [Build from source](docs/build.md) · [Changelog](CHANGELOG.md)

@@ -93,6 +93,8 @@ jobs:
           sha256sum --check "$SOURCES.sha256"
           version="$(cat VERSION)"
           poster=".github/artwork/releases/deck-physics-$version.svg"
+          direct_installer="DeckPhysics-Installer.tar.gz"
+          cp -- "$ARCHIVE" "$direct_installer"
           tag_tree="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME"
           notes="$RUNNER_TEMP/deck-physics-release-notes.md"
           {
@@ -101,7 +103,8 @@ jobs:
             printf '\n[Installation guide](%s/docs/installation.md) · [Tested compatibility](%s/docs/compatibility/README.md)\n' "$tag_tree" "$tag_tree"
           } > "$notes"
           gh release create "$GITHUB_REF_NAME" --verify-tag --title "Deck Physics $version" --notes-file "$notes" \
-            "$ARCHIVE" "$ARCHIVE.sha256" "$SOURCES" "$SOURCES.sha256" "$poster"
+            "$ARCHIVE" "$ARCHIVE.sha256" "$SOURCES" "$SOURCES.sha256" "$poster" \
+            "$direct_installer#Direct installer download"
 
   cleanup:
     needs: [build, release]

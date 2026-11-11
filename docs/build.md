@@ -14,7 +14,7 @@ The builder downloads the pinned [Proton-ZLUDA release asset][release] and verif
 
 [`VERSION`](../VERSION) records the project version. The installer archive includes that file and the documentation. For version `0.1.0`, the default filename is `DeckPhysics-Proton11-0.1.0.tar.gz`.
 
-The **Build installer** workflow in GitHub Actions uploads separate versioned ZIP downloads for the installer and the corresponding source archive. Each ZIP contains its `.tar.gz` and SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes the two `.tar.gz` files, their checksums, and the versioned SVG poster.
+The **Build installer** workflow in GitHub Actions uploads separate versioned ZIP downloads for the installer and the corresponding source archive. Each ZIP contains its `.tar.gz` and SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes the versioned installer and corresponding source archives, their checksums, and the SVG poster. It also attaches an identical installer named `DeckPhysics-Installer.tar.gz` for the README download link to the latest release.
 
 Before tagging a release, update `VERSION` and the README version, add an entry to [the changelog](../CHANGELOG.md), and write the release notes in `docs/release-notes/<version>.md`. Use `0.1.1` for a fix release and `0.2.0` for a feature release in the initial series.
 
