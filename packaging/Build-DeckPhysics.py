@@ -111,7 +111,7 @@ def build_bundled_patches(stage, work):
                                  compress_type=ZIP_DEFLATED)
 
 
-def build(proton, output):
+def build(proton, output, version):
     pins = json.loads((PACKAGING / 'upstream.json').read_text())
     with tempfile.TemporaryDirectory(dir=output.parent) as work:
         if proton is None:
@@ -125,6 +125,10 @@ def build(proton, output):
         stage.mkdir()
         for name in ('Install.sh', 'README.md', 'VERSION', 'CHANGELOG.md', 'LICENSE'):
             shutil.copy2(SOURCE / name, stage / name)
+        poster = Path('.github/artwork/releases') / f'deck-physics-{version}.svg'
+        if (SOURCE / poster).is_file():
+            (stage / poster.parent).mkdir(parents=True)
+            shutil.copy2(SOURCE / poster, stage / poster)
         for name in ('installer', 'docs', 'licenses', 'runtime'):
             shutil.copytree(SOURCE / name, stage / name, ignore=shutil.ignore_patterns('__pycache__'))
         shutil.copytree(PACKAGING / 'upstream-patches', stage / 'packaging/upstream-patches')
@@ -183,7 +187,7 @@ if __name__ == '__main__':
             build_sources(output)
         else:
             output = options.output or Path(f'{PACKAGE}-{version}.tar.gz')
-            build(options.proton, output)
+            build(options.proton, output, version)
     except (OSError, ValueError, tarfile.TarError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'{error}\n')
     print(output)
