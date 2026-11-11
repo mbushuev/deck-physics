@@ -42,4 +42,4 @@ patches/
     blocking-wait.deckphysx.zip
 ```
 
-Use **Search games** to find a game and select a patch row to see its details and dependencies. Use **Refresh patches** after copying, updating, or removing files while setup is open. It rescans the local folder and keeps selections for unchanged archives. New and changed archives start unchecked. Select files you trust, since enabled patches can run code during setup or launch. See the [package format](../BUILD.md#game-patch-format) to make a patch.
+Use **Search games** to find a game and select a patch row to see its details and dependencies. Use **Refresh patches** after copying, updating, or removing files while setup is open. It rescans the local folder and keeps selections for unchanged archives. New and changed archives start unchecked. Select files you trust, since enabled patches can run code during setup or launch. See the [package format](build.md#game-patch-format) to make a patch.

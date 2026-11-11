@@ -29,8 +29,8 @@ jobs:
       - name: Build the installer and corresponding sources
         id: package
         run: |
-          archive=$(python3 Build-DeckPhysics.py)
-          sources=$(python3 Build-DeckPhysics.py --sources-only)
+          archive=$(python3 packaging/Build-DeckPhysics.py)
+          sources=$(python3 packaging/Build-DeckPhysics.py --sources-only)
           sha256sum "$archive" > "$archive.sha256"
           sha256sum "$sources" > "$sources.sha256"
           echo "archive=$archive" >> "$GITHUB_OUTPUT"

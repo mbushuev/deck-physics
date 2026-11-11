@@ -16,7 +16,8 @@ from urllib.request import urlopen
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 
-SOURCE = Path(__file__).resolve().parent
+PACKAGING = Path(__file__).resolve().parent
+SOURCE = PACKAGING.parent
 PACKAGE = 'DeckPhysics-Proton11'
 UPSTREAM_NOTICE_DIRS = {'HiGHS', 'lld', 'llvm', 'zluda-cargo'}
 
@@ -66,7 +67,7 @@ def bundle(stage, links, output):
     def reproducible(info):
         info.uid = info.gid = info.mtime = 0
         info.uname = info.gname = ''
-        info.mode = 0o755 if info.name in (f'{root}/run', f'{root}/Install.sh') else 0o644
+        info.mode = 0o755 if info.name in (f'{root}/installer/run', f'{root}/Install.sh') else 0o644
         return info
 
     with output.open('wb') as file, gzip.GzipFile(filename='', fileobj=file, mode='wb',
@@ -85,14 +86,15 @@ def bundle(stage, links, output):
 
 def build_bundled_patches(stage, work):
     library = work / 'hip-wait-startup.so'
-    source = SOURCE / 'native/hip-wait-startup.c'
-    (stage / 'native').mkdir()
-    shutil.copy2(source, stage / 'native' / source.name)
+    source = PACKAGING / 'native/hip-wait-startup.c'
+    source_copy = stage / source.relative_to(SOURCE)
+    source_copy.parent.mkdir(parents=True)
+    shutil.copy2(source, source_copy)
     subprocess.run(['cc', '-O2', '-fPIC', '-shared', '-pthread', '-Wl,--build-id=none',
                     '-o', str(library), str(source), '-ldl'], check=True)
     binary = library.read_bytes()
 
-    for manifest in sorted((SOURCE / 'bundled-patches').glob('*/*.json')):
+    for manifest in sorted((PACKAGING / 'bundled-patches').glob('*/*.json')):
         data = manifest.read_bytes()
         settings = json.loads(data)
         source_copy = stage / manifest.relative_to(SOURCE)
@@ -110,7 +112,7 @@ def build_bundled_patches(stage, work):
 
 
 def build(proton, output):
-    pins = json.loads((SOURCE / 'upstream.json').read_text())
+    pins = json.loads((PACKAGING / 'upstream.json').read_text())
     with tempfile.TemporaryDirectory(dir=output.parent) as work:
         if proton is None:
             proton = Path(work) / 'Proton-ZLUDA.tar.gz'
@@ -121,13 +123,13 @@ def build(proton, output):
 
         stage = Path(work) / PACKAGE
         stage.mkdir()
-        for name in ('Install.sh', 'Install-DeckPhysics.py', 'PatchDialog.py', 'PatchPackages.py',
-                     'Build-DeckPhysics.py', 'run', 'README.md', 'BUILD.md', 'VERSION', 'upstream.json',
-                     'alice-pe32-null-host-free.patch'):
+        for name in ('Install.sh', 'README.md', 'VERSION'):
             shutil.copy2(SOURCE / name, stage / name)
-        shutil.copytree(SOURCE / 'docs', stage / 'docs')
-        shutil.copytree(SOURCE / 'licenses', stage / 'licenses')
-        shutil.copytree(SOURCE / 'runtime', stage / 'runtime', ignore=shutil.ignore_patterns('__pycache__'))
+        for name in ('installer', 'docs', 'licenses', 'runtime'):
+            shutil.copytree(SOURCE / name, stage / name, ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(PACKAGING / 'upstream-patches', stage / 'packaging/upstream-patches')
+        for name in ('Build-DeckPhysics.py', 'upstream.json'):
+            shutil.copy2(PACKAGING / name, stage / 'packaging' / name)
 
         with proton.open('rb') as stream:
             collect(stream, pins['files'], stage)
@@ -135,19 +137,19 @@ def build(proton, output):
 
         runtime = stage / 'runtime'
         manifest = {path.relative_to(stage).as_posix(): sha256(path)
-                    for path in sorted((stage / 'runtime').rglob('*')) if path.is_file()}
+                    for path in sorted(runtime.rglob('*')) if path.is_file()}
         for relative, target in pins['links'].items():
             manifest[relative] = manifest[Path(relative).with_name(target).as_posix()]
-        manifest['run'] = sha256(stage / 'run')
+        manifest['installer/run'] = sha256(stage / 'installer/run')
         manifest['VERSION'] = sha256(stage / 'VERSION')
-        (stage / 'SHA256.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')
+        (stage / 'installer/SHA256.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')
         pending = Path(work) / output.name
         bundle(stage, pins['links'], pending)
         os.replace(pending, output)
 
 
 def build_sources(output):
-    pins = json.loads((SOURCE / 'upstream.json').read_text())
+    pins = json.loads((PACKAGING / 'upstream.json').read_text())
     with tempfile.TemporaryDirectory(dir=output.parent) as work:
         stage = Path(work) / f'{PACKAGE}-sources'
         stage.mkdir()

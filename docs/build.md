@@ -1,24 +1,24 @@
 # Build the Steam Deck installer
 
-Use a Linux x86-64 build host with Python 3.9 or later, a C compiler, and a GNU-compatible linker. See the [installation requirements](docs/installation.md#requirements) for the Steam Deck environment.
+Use a Linux x86-64 build host with Python 3.9 or later, a C compiler, and a GNU-compatible linker. See the [installation requirements](installation.md#requirements) for the Steam Deck environment.
 
-From a clean checkout, run the builder.
+From the root of a clean checkout, run the builder.
 
 ```sh
-python3 Build-DeckPhysics.py
+python3 packaging/Build-DeckPhysics.py
 ```
 
-The builder downloads the pinned [Proton-ZLUDA release asset][release] and verifies the archive and each selected runtime file against `upstream.json`. Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. It builds the HIP wait library from `native/hip-wait-startup.c` and uses `bundled-patches/` to create the optional game patch files. The Steam launch uses the Valve compatibility tool selected by the user. PhysX binaries are installed locally on the Deck.
+The builder downloads the pinned [Proton-ZLUDA release asset][release] and verifies the archive and each selected runtime file against [the input manifest](../packaging/upstream.json). Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. It compiles the HIP wait library from `packaging/native/hip-wait-startup.c` and uses `packaging/bundled-patches/` to create the optional game patch files. The Steam launch uses the Valve compatibility tool selected by the user. PhysX binaries are installed locally on the Deck.
 
 ## Versions and releases
 
-[`VERSION`](VERSION) records the project version. The installer archive includes that file and the documentation. For version `0.1.0`, the default filename is `DeckPhysics-Proton11-0.1.0.tar.gz`.
+[`VERSION`](../VERSION) records the project version. The installer archive includes that file and the documentation. For version `0.1.0`, the default filename is `DeckPhysics-Proton11-0.1.0.tar.gz`.
 
 The **Build installer** workflow in GitHub Actions uploads separate versioned ZIP downloads for the installer and the corresponding source archive. Each ZIP contains its `.tar.gz` and SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes the two `.tar.gz` files and their checksums as GitHub Release assets. Update `VERSION` and the README version before tagging a new release.
 
 After both uploads succeed, Actions keeps the new pair and removes superseded installer and source artifacts from completed runs of this workflow. Tagged builds clean up after publication. Pull requests from forks build the package for verification.
 
-To build the corresponding source archive on its own, run `python3 Build-DeckPhysics.py --sources-only`. That archive contains the [source inputs for bundled LGPL components](licenses/SOURCES.md). Use a checkout of this repository to build the installer itself.
+To build the corresponding source archive on its own, run `python3 packaging/Build-DeckPhysics.py --sources-only`. That archive contains the [source inputs for bundled LGPL components](../licenses/SOURCES.md). Use a checkout of this repository to build the installer itself.
 
 ## Game patch format
 
@@ -46,7 +46,7 @@ A `.deckphysx.zip` file in `patches/<game>/` contains `patch.json` and an option
 
 ## Sources and updates
 
-The pinned [Proton-ZLUDA source](https://github.com/chkuendig/Proton-ZLUDA/tree/799caed86a971786a0697e7dbe2b35e2df37d171) builds [Wine e60892c](https://github.com/ValveSoftware/wine/tree/e60892cc2398b0a83c332a2078c7b85e47bdb42b), [ZLUDA-Wine bf80022](https://github.com/chkuendig/zluda-wine/tree/bf80022f07cf66fbec96445cf77c12d2081c32ee), [ZLUDA 39ef5ce](https://github.com/chkuendig/ZLUDA/tree/39ef5ce92bb7c2363ba756b3316b8cfce65d5b65), [DXVK-NVAPI f9fdf26](https://github.com/jp7677/dxvk-nvapi/tree/f9fdf268e888d17ae9875a4f01908164ff05f740), and [numactl 2.0.18](https://github.com/numactl/numactl/tree/v2.0.18). The upstream dependency lock is [`make/zluda-deps.json`](https://github.com/chkuendig/Proton-ZLUDA/blob/799caed86a971786a0697e7dbe2b35e2df37d171/make/zluda-deps.json). The bridge repository carries the Wine and NVAPI patches. The source equivalent of the local PE32 patch is `alice-pe32-null-host-free.patch`.
+The pinned [Proton-ZLUDA source](https://github.com/chkuendig/Proton-ZLUDA/tree/799caed86a971786a0697e7dbe2b35e2df37d171) builds [Wine e60892c](https://github.com/ValveSoftware/wine/tree/e60892cc2398b0a83c332a2078c7b85e47bdb42b), [ZLUDA-Wine bf80022](https://github.com/chkuendig/zluda-wine/tree/bf80022f07cf66fbec96445cf77c12d2081c32ee), [ZLUDA 39ef5ce](https://github.com/chkuendig/ZLUDA/tree/39ef5ce92bb7c2363ba756b3316b8cfce65d5b65), [DXVK-NVAPI f9fdf26](https://github.com/jp7677/dxvk-nvapi/tree/f9fdf268e888d17ae9875a4f01908164ff05f740), and [numactl 2.0.18](https://github.com/numactl/numactl/tree/v2.0.18). The upstream dependency lock is [`make/zluda-deps.json`](https://github.com/chkuendig/Proton-ZLUDA/blob/799caed86a971786a0697e7dbe2b35e2df37d171/make/zluda-deps.json). The bridge repository carries the Wine and NVAPI patches. See the [Alice bridge patch](../packaging/upstream-patches/alice-pe32-null-host-free.patch) for the source equivalent of the local PE32 fix.
 
 ZLUDA pins [Christian's LLVM fork at c83b929](https://github.com/chkuendig/llvm-project/tree/c83b929aeff0aa6b9877c6712e9914d1275b1d36).
 

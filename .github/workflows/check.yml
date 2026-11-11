@@ -12,9 +12,9 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Check Python, shell, and native sources
         run: |
-          python3 -m py_compile Build-DeckPhysics.py Install-DeckPhysics.py PatchDialog.py PatchPackages.py runtime/*.py
+          python3 -m py_compile packaging/*.py installer/*.py runtime/*.py
           bash -n Install.sh
-          bash -n run
-          cc -std=gnu11 -Wall -Wextra -fsyntax-only native/hip-wait-startup.c
+          bash -n installer/run
+          cc -std=gnu11 -Wall -Wextra -fsyntax-only packaging/native/hip-wait-startup.c
       - name: Test game patch packages
         run: python3 -m unittest discover -s tests

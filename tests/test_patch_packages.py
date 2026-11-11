@@ -1,15 +1,19 @@
 import importlib.util
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from zipfile import ZipFile
 
+REPO = Path(__file__).resolve().parents[1]
+INSTALLER_DIR = REPO / 'installer'
+sys.path.insert(0, str(INSTALLER_DIR))
+
 from PatchPackages import discover_patches, validate_selection
 
 
-REPO = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location('installer', REPO / 'Install-DeckPhysics.py')
+SPEC = importlib.util.spec_from_file_location('installer', INSTALLER_DIR / 'Install-DeckPhysics.py')
 INSTALLER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(INSTALLER)
 
@@ -51,10 +55,14 @@ class PatchPackagesTest(unittest.TestCase):
         state.mkdir()
         bundle = self.root / 'bundle'
         (bundle / 'runtime').mkdir(parents=True)
-        (bundle / 'run').touch()
+        (bundle / 'installer').mkdir()
+        launcher = bundle / 'installer/run'
+        launcher.write_bytes((INSTALLER_DIR / 'run').read_bytes())
         for selected in ([], [patches['35140:example']], []):
             layout = {'games': {app_id: dict(game) for app_id, game in self.games.items()}}
-            INSTALLER.install_release(bundle, state, layout, None, {}, selected)
+            launch = INSTALLER.install_release(bundle, state, layout, None, {}, selected)
+            self.assertEqual(launch, state / 'current/run')
+            self.assertEqual(launch.read_bytes(), launcher.read_bytes())
             runtime = state / 'current' / INSTALLER.RUNTIME_DIR
             installed = json.loads((runtime / 'steam-layout.json').read_text())['games']
             generated = runtime / 'patches/35140/example/generated'

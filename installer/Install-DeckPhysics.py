@@ -20,7 +20,7 @@ from PatchDialog import choose_launch_options
 from PatchPackages import checksum as digest
 
 
-HERE = Path(__file__).resolve().parent
+BUNDLE = Path(__file__).resolve().parents[1]
 USER_DIR = Path.home()
 STEAM = USER_DIR / '.local/share/Steam'
 STATE = USER_DIR / '.local/share/amd-physx/deck-proton11'
@@ -250,7 +250,7 @@ def prepare_physx(apps, layout, state, temporary):
 
 
 def check_payload(bundle):
-    manifest = json.loads((bundle / 'SHA256.json').read_text())
+    manifest = json.loads((bundle / 'installer/SHA256.json').read_text())
     for relative, expected in manifest.items():
         if not matches(bundle / relative, expected):
             raise RuntimeError('Installer file failed verification: ' + relative)
@@ -270,7 +270,7 @@ def install_release(bundle, state, layout, alice, manifest, patches):
             stage = Path(work) / 'release'
             shutil.copytree(bundle / 'runtime', stage / RUNTIME_DIR, symlinks=True)
             (stage / RUNTIME_DIR / 'steam-layout.json').write_text(encoded)
-            shutil.copy2(bundle / 'run', stage / 'run')
+            shutil.copy2(bundle / 'installer/run', stage / 'run')
             if alice:
                 for relative, file in alice.items():
                     target = stage / 'deck-runtime/input' / relative
@@ -293,7 +293,7 @@ def main():
     if missing:
         raise RuntimeError('Missing SteamOS tools: ' + ', '.join(missing))
     apps, layout = discover(STEAM)
-    manifest = check_payload(HERE)
+    manifest = check_payload(BUNDLE)
     STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
     with (STATE / 'install.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -305,7 +305,7 @@ def main():
                           stdout=subprocess.DEVNULL).returncode == 0:
             raise RuntimeError('Close Batman and Alice before running the installer.')
         previous = STATE / 'current' / RUNTIME_DIR / 'steam-layout.json'
-        choices = choose_launch_options(previous, games, HERE / 'patches', LAUNCH_OPTIONS)
+        choices = choose_launch_options(previous, games, BUNDLE / 'patches', LAUNCH_OPTIONS)
         if choices is None:
             return
         game_options, selected_patches = choices
@@ -320,7 +320,7 @@ def main():
                 subprocess.run(['kdialog', '--title', 'PhysX for Steam Deck', '--msgbox',
                                 'No games were configured.\n\n' + skipped], check=False)
                 return
-            launch = install_release(HERE, STATE, layout, alice, manifest, selected_patches)
+            launch = install_release(BUNDLE, STATE, layout, alice, manifest, selected_patches)
 
     names = ', '.join(game['name'] for game in layout['games'].values())
     option = shlex.quote(str(launch)) + ' %command%'
