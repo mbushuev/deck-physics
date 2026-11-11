@@ -18,7 +18,7 @@ The **Build installer** workflow in GitHub Actions uploads separate versioned ZI
 
 Before tagging a release, update `VERSION` and the README version, add an entry to [the changelog](../CHANGELOG.md), and write the release notes in `docs/release-notes/<version>.md`. Use `0.1.1` for a fix release and `0.2.0` for a feature release in the initial series.
 
-Save each poster as `.github/artwork/releases/deck-physics-<version>.svg`. Keep the [project mark](media/deck-physics-mark.svg), a solid background, the project name, and the version. Preserve earlier posters. The release workflow embeds the new poster and uses that version's notes.
+Save each poster as `.github/artwork/releases/deck-physics-<version>.svg`. Use a 16:9 landscape layout with the [project mark](media/deck-physics-mark.svg), a solid background, the project name, and the version. Preserve earlier posters. The release workflow embeds the new poster and uses that version's notes.
 
 After both uploads succeed, Actions keeps the new pair and removes superseded installer and source artifacts from completed runs of this workflow. Tagged builds clean up after publication. Pull requests from forks build the package for verification.
 
