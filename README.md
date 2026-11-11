@@ -1,8 +1,10 @@
+<img src="docs/media/deck-physics-mark.svg" width="84" height="84" align="right" alt="">
+
 # Deck Physics
 
 Deck Physics sets up performance profiles for classic games on Steam Deck. Configure launch options and optional performance and battery patches for each game.
 
-**Version [0.1.0](VERSION)** · [Installation](docs/installation.md) · [Tested compatibility](docs/compatibility/README.md) · [Build from source](docs/build.md)
+**Version [0.1.0](VERSION)** · [Installation](docs/installation.md) · [Tested compatibility](docs/compatibility/README.md) · [Build from source](docs/build.md) · [Changelog](CHANGELOG.md)
 
 ## Quick start
 

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">Deck Physics mark</title>
+  <rect width="256" height="256" rx="28" fill="#161814"/>
+  <path fill="#CAFF43" fill-rule="evenodd" transform="translate(31 50) scale(1.21)" d="M4 10H44L73 39V63L44 92H4ZM22 28V74H36L55 55V47L36 28Z M86 36H129L156 63V79L130 105H104V118H86ZM104 54V87H122L138 71L121 54Z"/>
+</svg>

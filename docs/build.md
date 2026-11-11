@@ -14,7 +14,11 @@ The builder downloads the pinned [Proton-ZLUDA release asset][release] and verif
 
 [`VERSION`](../VERSION) records the project version. The installer archive includes that file and the documentation. For version `0.1.0`, the default filename is `DeckPhysics-Proton11-0.1.0.tar.gz`.
 
-The **Build installer** workflow in GitHub Actions uploads separate versioned ZIP downloads for the installer and the corresponding source archive. Each ZIP contains its `.tar.gz` and SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes the two `.tar.gz` files and their checksums as GitHub Release assets. Update `VERSION` and the README version before tagging a new release.
+The **Build installer** workflow in GitHub Actions uploads separate versioned ZIP downloads for the installer and the corresponding source archive. Each ZIP contains its `.tar.gz` and SHA-256 checksum. A matching tag such as `v0.1.0` on a tested commit from `main` publishes the two `.tar.gz` files, their checksums, and the versioned SVG poster.
+
+Before tagging a release, update `VERSION` and the README version, add an entry to [the changelog](../CHANGELOG.md), and write the release notes in `docs/release-notes/<version>.md`. Use `0.1.1` for a fix release and `0.2.0` for a feature release in the initial series.
+
+Save each poster as `.github/artwork/releases/deck-physics-<version>.svg`. Keep the [project mark](media/deck-physics-mark.svg), a solid background, the project name, and the version. Preserve earlier posters. The release workflow embeds the new poster and uses that version's notes.
 
 After both uploads succeed, Actions keeps the new pair and removes superseded installer and source artifacts from completed runs of this workflow. Tagged builds clean up after publication. Pull requests from forks build the package for verification.
 
@@ -23,6 +27,8 @@ To build the corresponding source archive on its own, run `python3 packaging/Bui
 ## Game patch format
 
 A `.deckphysx.zip` file in `patches/<game>/` contains `patch.json` and an optional `files/` payload. Each archive describes one patch for one Steam App ID.
+
+Deck Physics bundles the graphics mask and blocking GPU waits. Additional patch downloads can ship as a versioned per-game ZIP with a `patches/<game>/` directory. Document the supported game version and prerequisites, then follow the [patch installation steps](installation.md#add-your-own-patches).
 
 ```json
 {
