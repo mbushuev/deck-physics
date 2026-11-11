@@ -19,6 +19,6 @@ The bundled **Blocking GPU waits** patch lets CPU threads sleep while waiting fo
 
 ## Profile details
 
-- Starts the original game executable in Valve Proton. During launch, a read-only filesystem overlay supplies the ZLUDA CUDA bridge, DXVK-NVAPI, and a compatible Wine component. The Steam game files and Proton installation remain unchanged.
+- Starts the original game executable in Valve Proton using the [shared launch setup](README.md#how-games-launch).
 - Uses registered PhysX 2.8.1.58 from the game's Proton prefix. If it is missing, **Set Up Batman** uses a verified cached copy of the NVIDIA installer or downloads it, then runs it in the game's prefix after license acceptance.
 - The installer includes the [Six-CU graphics mask](../installation.md#optional-game-patches) as a separate option.

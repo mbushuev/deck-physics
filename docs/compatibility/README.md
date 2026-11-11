@@ -11,4 +11,10 @@ The installer configures the profiles listed here. Other titles may work with th
 
 See the [installation guide](../installation.md) for setup requirements.
 
+## How games launch
+
+Deck Physics packages components from [Proton-ZLUDA](../build.md#sources-and-updates) for games launched with Valve Proton. The original NVIDIA PhysX runtime handles the simulation. ZLUDA translates its CUDA calls for the AMD GPU.
+
+The launcher uses read-only mounts to supply the CUDA bridge, DXVK-NVAPI, and a compatible Wine component for the game session. It applies the Alice compatibility fix to a temporary copy of the 32-bit CUDA bridge. The game executables and NVIDIA PhysX libraries are used as supplied. The optional [Blocking GPU waits patch](../installation.md#optional-game-patches) uses a Deck Physics library to set the wait policy before GPU queues are created.
+
 PhysX is a trademark of NVIDIA Corporation. Deck Physics is an independent project.

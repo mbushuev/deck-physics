@@ -1,5 +1,7 @@
 # Installation
 
+Deck Physics bundles compatibility components and configures how Steam starts your installed games. Setup reuses verified NVIDIA PhysX files or obtains them from NVIDIA on the Deck. See [how games launch](compatibility/README.md#how-games-launch) for the components used at runtime.
+
 ## Requirements
 
 - Steam Deck running SteamOS with its built-in Steam client and at least one game from the [tested compatibility list](compatibility/README.md) installed through Steam.
