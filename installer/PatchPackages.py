@@ -61,6 +61,7 @@ class Patch:
     file_environment: dict
     preload: str | None
     prepare: str | None
+    requires_nvidia_physx: bool
 
     @property
     def key(self):
@@ -107,7 +108,8 @@ def read_patch(path):
         source.seek(0)
         sha256 = hashlib.file_digest(source, 'sha256').hexdigest()
     required = {'format', 'id', 'app_id', 'title', 'description'}
-    optional = {'details', 'requires', 'environment', 'file_environment', 'preload', 'prepare'}
+    optional = {'details', 'requires', 'environment', 'file_environment', 'preload', 'prepare',
+                'requires_nvidia_physx'}
     if (not isinstance(info, dict) or not required <= info.keys() <= required | optional
             or type(info['format']) is not int or info['format'] != 1):
         raise ValueError('Unsupported patch manifest')
@@ -138,8 +140,13 @@ def read_patch(path):
     if prepare is not None and (not relative_path(prepare) or not prepare.endswith('.py')
                                 or 'files/' + prepare not in files):
         raise ValueError('Missing or invalid preparation script')
+    # Existing Batman preparation scripts used the verified prefix runtime.
+    requires_nvidia_physx = info.get('requires_nvidia_physx', info['app_id'] == '35140' and prepare is not None)
+    if type(requires_nvidia_physx) is not bool or (requires_nvidia_physx and info['app_id'] != '35140'):
+        raise ValueError('Invalid NVIDIA PhysX patch requirement')
     return Patch(path, sha256, info['app_id'], info['id'], info['title'], info['description'],
-                 details.strip(), tuple(requires), environment, file_environment, preload, prepare)
+                 details.strip(), tuple(requires), environment, file_environment, preload, prepare,
+                 requires_nvidia_physx)
 
 
 def discover_patches(folder, games):
@@ -178,3 +185,12 @@ def validate_selection(patches, selected):
             if (patch.app_id, name) in variables:
                 raise ValueError(f'{patch.title} conflicts with another selected patch for this game.')
             variables.add((patch.app_id, name))
+
+
+def without_missing_dependencies(patches):
+    remaining = {patch.key: patch for patch in patches}
+    while missing := [key for key, patch in remaining.items()
+                      if any(f'{patch.app_id}:{dependency}' not in remaining for dependency in patch.requires)]:
+        for key in missing:
+            del remaining[key]
+    return list(remaining.values())

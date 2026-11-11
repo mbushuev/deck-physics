@@ -2,12 +2,14 @@
 
 from html import escape
 import json
+from subprocess import SubprocessError
 
 from PatchPackages import discover_patches, validate_selection
 
 
 class PatchDialog:
-    def __init__(self, gtk, games, folder, launch_options, saved):
+    def __init__(self, gtk, games, folder, launch_options, saved, package_version,
+                 check_package, download_package):
         self.gtk = gtk
         self.games = games
         self.folder = folder
@@ -15,6 +17,8 @@ class PatchDialog:
         self.selected = set()
         self.active_game = None
         self.focused_patches = {}
+        self.check_package = check_package
+        self.download_package = download_package
 
         saved_games = saved.get('games', {})
         saved_options = saved.get('launch_options', {})
@@ -32,6 +36,7 @@ class PatchDialog:
         body = self.dialog.get_content_area()
         body.set_spacing(10)
         body.set_border_width(12)
+        body.pack_start(self.package_bar(package_version), False, False, 0)
         main = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=16)
         body.pack_start(main, True, True, 0)
         main.pack_start(self.game_navigation(), False, False, 0)
@@ -96,6 +101,40 @@ class PatchDialog:
         area.set_overlay_scrolling(False)
         area.add(child)
         return area
+
+    def package_bar(self, version):
+        gtk = self.gtk
+        bar = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=10)
+        bar.pack_start(self.heading(f'NVIDIA PhysX {version}'), False, False, 0)
+        self.package_status = self.label()
+        bar.pack_start(self.package_status, True, True, 0)
+        check = gtk.Button(label='Check package')
+        check.connect('clicked', self.update_package_status)
+        bar.pack_start(check, False, False, 0)
+        self.package_download = gtk.Button(label='Download package')
+        self.package_download.set_no_show_all(True)
+        self.package_download.connect('clicked', self.download_package_clicked)
+        bar.pack_start(self.package_download, False, False, 0)
+        self.update_package_status()
+        return bar
+
+    def update_package_status(self, _button=None):
+        try:
+            package = self.check_package()
+        except OSError as error:
+            self.package_status.set_text(f'Could not check package. {error}')
+            self.package_download.show()
+            return
+        self.package_status.set_text('Verified (SHA-256)' if package else 'No verified package found')
+        self.package_download.set_visible(package is None)
+
+    def download_package_clicked(self, _button):
+        try:
+            self.download_package()
+        except (OSError, ValueError, RuntimeError, SubprocessError) as error:
+            self.package_status.set_text(f'Could not download package. {error}')
+        else:
+            self.update_package_status()
 
     def game_navigation(self):
         gtk = self.gtk
@@ -253,6 +292,8 @@ class PatchDialog:
         self.focused_patches[patch.app_id] = patch.key
         self.detail_title.set_markup(f'<b>{escape(patch.title)}</b>')
         sections = [patch.details or patch.description]
+        if patch.requires_nvidia_physx:
+            sections.append('Uses the official NVIDIA PhysX package.')
         if patch.requires:
             names = []
             for name in patch.requires:
@@ -316,7 +357,8 @@ class PatchDialog:
             self.dialog.destroy()
 
 
-def choose_launch_options(config, games, folder, launch_options):
+def choose_launch_options(config, games, folder, launch_options, package_version, check_package,
+                          download_package):
     try:
         import gi
         gi.require_version('Gtk', '3.0')
@@ -329,4 +371,5 @@ def choose_launch_options(config, games, folder, launch_options):
         saved = json.loads(config.read_text())
     except (OSError, ValueError):
         saved = {}
-    return PatchDialog(Gtk, games, folder, launch_options, saved).run()
+    return PatchDialog(Gtk, games, folder, launch_options, saved, package_version,
+                       check_package, download_package).run()

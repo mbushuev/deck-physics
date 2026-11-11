@@ -20,5 +20,5 @@ The bundled **Blocking GPU waits** patch lets CPU threads sleep while waiting fo
 ## Profile details
 
 - Starts the original game executable in Valve Proton using the [shared launch setup](README.md#how-games-launch).
-- Uses registered PhysX 2.8.1.58 from the game's Proton prefix. If it is missing, **Set Up Batman** uses a verified cached copy of the NVIDIA installer or downloads it, then runs it in the game's prefix after license acceptance.
+- Uses PhysX from the game's Proton prefix. Setup checks for the runtime from the official NVIDIA package only when a selected patch requires it. The reference benchmarks used PhysX 2.8.1.58.
 - The installer includes the [Six-CU graphics mask](../installation.md#optional-game-patches) as a separate option.

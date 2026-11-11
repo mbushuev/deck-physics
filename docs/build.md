@@ -43,6 +43,7 @@ A `.deckphysx.zip` file in `patches/<game>/` contains `patch.json` and an option
 - `file_environment` supplies environment variables pointing to files relative to the extracted payload. Paths use `/` and cannot traverse outside the payload.
 - `preload` is the relative path to a Linux shared library from the payload.
 - `prepare` is the relative path to a Python script in the payload. The installer runs it in the patch directory with the Proton prefix and game executable paths as positional arguments. It can generate files referenced by `file_environment` or `preload`.
+- `requires_nvidia_physx` is a boolean for Batman patches that need the runtime from the official NVIDIA PhysX package. Set it to `false` for preparation scripts that do not use that runtime. For compatibility with existing archives, Batman patches with a `prepare` script default to `true` when the field is omitted. Other patches default to `false`.
 
 ## Sources and updates
 

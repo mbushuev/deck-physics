@@ -1,9 +1,12 @@
+import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from zipfile import ZipFile
 
 REPO = Path(__file__).resolve().parents[1]
@@ -83,6 +86,98 @@ class PatchPackagesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'conflicts'):
             validate_selection(patches, {'35140:base', '35140:conflict'})
         validate_selection(patches, {'35140:base', '35140:child'})
+
+    def test_batman_package_check_only_applies_to_selected_patches_that_need_it(self):
+        self.make_patch('batman', '35140', 'legacy', {'files/prepare.py': ''}, prepare='prepare.py')
+        self.make_patch('batman', '35140', 'standalone', {'files/prepare.py': ''},
+                        prepare='prepare.py', requires_nvidia_physx=False)
+        layout = {'games': {'35140': self.games['35140']}}
+        patches, issues = discover_patches(self.folder, layout['games'])
+        self.assertFalse(issues)
+        self.assertTrue(patches['35140:legacy'].requires_nvidia_physx)
+        selected = [patches['35140:standalone']]
+        with patch.object(INSTALLER, 'batman_has_physx') as check:
+            self.assertEqual(INSTALLER.prepare_physx([], layout, self.root, self.root, selected),
+                             (None, selected, False))
+        check.assert_not_called()
+
+    def test_skipping_shared_package_keeps_batman_and_its_independent_patches(self):
+        self.make_patch('batman', '35140', 'base', requires_nvidia_physx=True)
+        self.make_patch('batman', '35140', 'dependent', requires=['base'])
+        self.make_patch('batman', '35140', 'indirect', requires=['dependent'])
+        self.make_patch('batman', '35140', 'standalone')
+        patches, issues = discover_patches(self.folder, self.games)
+        self.assertFalse(issues)
+        layout = {'games': self.games.copy()}
+        with patch.object(INSTALLER, 'find_physx_package', return_value=None) as find:
+            alice, selected, skipped = INSTALLER.prepare_physx(
+                [], layout, self.root, self.root, list(patches.values()))
+        find.assert_called_once_with(self.root)
+        self.assertIsNone(alice)
+        self.assertTrue(skipped)
+        self.assertEqual(selected, [patches['35140:standalone']])
+        self.assertEqual(set(layout['games']), {'35140'})
+
+    def test_one_package_sets_up_both_games_when_needed(self):
+        self.make_patch('batman', '35140', 'package', requires_nvidia_physx=True)
+        patches, issues = discover_patches(self.folder, self.games)
+        self.assertFalse(issues)
+        selected = list(patches.values())
+        layout = {'games': self.games.copy()}
+        archive = self.root / 'nvidia.exe'
+        alice = {'example.dll': self.root / 'example.dll'}
+        with (patch.object(INSTALLER, 'find_physx_package', return_value=archive) as find,
+              patch.object(INSTALLER, 'accept_nvidia_terms', return_value=True) as terms,
+              patch.object(INSTALLER, 'extract_alice_files', return_value=alice) as extract,
+              patch.object(INSTALLER, 'install_batman_physx') as install):
+            self.assertEqual(INSTALLER.prepare_physx([], layout, self.root, self.root, selected),
+                             (alice, selected, False))
+        find.assert_called_once_with(self.root)
+        terms.assert_called_once_with(archive, self.root)
+        extract.assert_called_once_with(archive, self.root)
+        install.assert_called_once_with(archive, layout, Path('game-prefix'), self.root)
+        self.assertEqual(set(layout['games']), {'35140', '19680'})
+
+    def test_package_step_downloads_once_and_reuses_verified_archive(self):
+        archive = self.root / INSTALLER.PHYSX_NAME
+        data = b'test NVIDIA package'
+        archive.write_bytes(b'corrupt cached package')
+        with (patch.object(INSTALLER, 'PHYSX_HASH', hashlib.sha256(data).hexdigest()),
+              patch.object(INSTALLER, 'USER_DIR', self.root),
+              patch.object(INSTALLER, 'confirm_physx_download', return_value=True) as confirm,
+              patch.object(INSTALLER, 'download_physx_with_progress',
+                           side_effect=lambda file: file.write_bytes(data)) as download):
+            self.assertIsNone(INSTALLER.find_physx_package(self.root))
+            INSTALLER.prepare_physx_package(self.root)
+            INSTALLER.prepare_physx_package(self.root)
+            self.assertEqual(INSTALLER.find_physx_package(self.root), archive)
+        confirm.assert_called_once_with()
+        download.assert_called_once_with(archive)
+
+    def test_download_reaches_100_only_after_package_verification(self):
+        archive = self.root / INSTALLER.PHYSX_NAME
+        data = b'test NVIDIA package'
+        with (patch.object(INSTALLER, 'PHYSX_SIZE', len(data)),
+              patch.object(INSTALLER, 'PHYSX_HASH', hashlib.sha256(data).hexdigest()),
+              patch.object(INSTALLER, 'urlopen') as open_url):
+            for payload in (b'x' * len(data), data):
+                response = io.BytesIO(payload)
+                response.geturl = lambda: INSTALLER.PHYSX_URL
+                open_url.return_value = response
+                updates = []
+
+                def progress(percent, _message):
+                    updates.append((percent, archive.is_file()))
+
+                if payload != data:
+                    with self.assertRaisesRegex(RuntimeError, 'does not match'):
+                        INSTALLER.download_physx(archive, progress)
+                    self.assertEqual(updates, [(95, False), (97, False)])
+                    self.assertFalse(list(self.root.iterdir()))
+                else:
+                    INSTALLER.download_physx(archive, progress)
+                    self.assertEqual(updates, [(95, False), (97, False), (100, True)])
+                    self.assertEqual(archive.read_bytes(), data)
 
     def test_unsafe_or_replaced_archives_cannot_be_extracted(self):
         self.make_patch('batman', '35140', 'invalid', {'files/../escape': 'payload'})

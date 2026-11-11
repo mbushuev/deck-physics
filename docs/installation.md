@@ -15,10 +15,11 @@ Setup uses a single installer `.tar.gz`. Download it from **Releases** when a ta
 ## Install and launch
 
 1. Close the games. In Desktop Mode, extract the installer `.tar.gz` and run `Install.sh` from the extracted folder. From Konsole in that folder, run `./Install.sh`.
-2. Select each game from the list and review its **Launch options** and **Patches**. **Skip intro videos** and **Show FPS counter** start enabled on first setup. New patches start unchecked. Click **Continue** when you are ready to apply the selections.
-3. If setup cannot find a game's verified PhysX files, it offers to reuse a cached NVIDIA installer or download it from NVIDIA (about 29 MB). Review the license prompt when shown. Choosing **Skip Alice** or **Skip Batman** leaves that game out of the setup when its files are missing. Other games with the required files can still be configured.
-4. Copy the full command from the setup summary, including `%command%`. Paste it into **Properties → General → Launch Options** for each game listed in the summary.
-5. Launch the game from Steam in Desktop Mode or Gaming Mode. Set **PhysX High** in the game to match the reference tests. Use Steam's performance menu to control its overlay and frame limit. The installer's **Show FPS counter** controls the MangoHud overlay requested by Deck Physics.
+2. Choose **Download Package** to download the official **NVIDIA PhysX 9.23.1019** package (about 29 MB). The progress window shows the download and SHA-256 verification. Setup reuses a verified local copy when available.
+3. The top of the setup window shows the package status. Use **Check package** to verify it again or **Download package** when a verified copy is missing. Select each game to review its **Launch options** and **Patches**. **Skip intro videos** and **Show FPS counter** start enabled on first setup. New patches start unchecked. Click **Continue** to apply your selections.
+4. Setup checks for the package if Alice or any selected Batman patch needs files that are missing. Review the license prompt when shown. If you chose **Skip Package**, setup leaves out the parts that still need it.
+5. Copy the full command from the setup summary, including `%command%`. Paste it into **Properties → General → Launch Options** for each game listed in the summary.
+6. Launch the game from Steam in Desktop Mode or Gaming Mode. Set **PhysX High** in the game to match the reference tests. Use Steam's performance menu to control its overlay and frame limit. The installer's **Show FPS counter** controls the MangoHud overlay requested by Deck Physics.
 
 Run `Install.sh` again to change the settings. To return to a standard launch, restore your previous Steam launch options or clear the field if it was empty before setup.
 

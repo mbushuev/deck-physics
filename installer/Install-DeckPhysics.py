@@ -18,6 +18,7 @@ from zipfile import BadZipFile
 
 from PatchDialog import choose_launch_options
 from PatchPackages import checksum as digest
+from PatchPackages import without_missing_dependencies
 
 
 BUNDLE = Path(__file__).resolve().parents[1]
@@ -35,8 +36,9 @@ LAUNCH_OPTIONS = {
     'skip_startup_movies': (True, 'Skip intro videos', 'Skip videos before the main menu.'),
     'show_fps': (True, 'Show FPS counter', 'Show FPS and frame time with MangoHud.'),
 }
-PHYSX_NAME = 'PhysX_9.23.1019_SystemSoftware.exe'
-PHYSX_URL = 'https://us.download.nvidia.com/Windows/9.23.1019/' + PHYSX_NAME
+PHYSX_VERSION = '9.23.1019'
+PHYSX_NAME = f'PhysX_{PHYSX_VERSION}_SystemSoftware.exe'
+PHYSX_URL = f'https://us.download.nvidia.com/Windows/{PHYSX_VERSION}/{PHYSX_NAME}'
 PHYSX_SIZE = 29_417_888
 PHYSX_HASH = '9b42b84e881769d681e09f62a1b51532616b2e6a2d5d99d0ccae6eb5fbbc208c'
 PHYSX_ROOT = Path('pfx/drive_c/Program Files (x86)/NVIDIA Corporation/PhysX')
@@ -129,13 +131,12 @@ def batman_has_physx(prefix):
                               for relative, expected in BATMAN_FILES.items())
 
 
-def confirm_physx(game, requirement):
-    message = (f'{game} requires {requirement}.\n\n'
-               'The installer will reuse a verified local copy of NVIDIA PhysX 9.23.1019 '
-               'or download it from NVIDIA (about 29 MB) if needed.\n\n'
-               f'If you skip this step, Deck Physics cannot launch {game}.')
-    result = subprocess.run(['kdialog', '--title', f'PhysX for {game}',
-                             '--yes-label', f'Set Up {game}', '--no-label', f'Skip {game}',
+def confirm_physx_download():
+    message = (f'Download the official NVIDIA PhysX {PHYSX_VERSION} package (about 29 MB). '
+               'It provides the runtime files that games and their patches need to work correctly. '
+               'Setup reuses the download across games.')
+    result = subprocess.run(['kdialog', '--title', f'NVIDIA PhysX {PHYSX_VERSION}',
+                             '--yes-label', 'Download Package', '--no-label', 'Skip Package',
                              '--yesno', message], check=False)
     if result.returncode == 1:
         return False
@@ -143,7 +144,7 @@ def confirm_physx(game, requirement):
     return True
 
 
-def download_physx(destination):
+def download_physx(destination, progress):
     with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as output:
         pending = Path(output.name)
         try:
@@ -155,23 +156,45 @@ def download_physx(destination):
                     if output.tell() + len(chunk) > PHYSX_SIZE:
                         raise RuntimeError('The NVIDIA download exceeds the expected size.')
                     output.write(chunk)
+                    progress(95 * output.tell() // PHYSX_SIZE, 'Downloading from NVIDIA…')
             output.close()
+            progress(97, 'Checking SHA-256…')
             if pending.stat().st_size != PHYSX_SIZE or not matches(pending, PHYSX_HASH):
                 raise RuntimeError('The NVIDIA download does not match the verified package.')
             os.replace(pending, destination)
+            progress(100, 'Package verified.')
         finally:
             pending.unlink(missing_ok=True)
 
 
-def acquire_physx(state):
+def find_physx_package(state):
     cache = USER_DIR / '.cache/winetricks/physx' / PHYSX_NAME
     local = state / PHYSX_NAME
-    for candidate in (local, cache):
-        if matches(candidate, PHYSX_HASH):
-            return candidate
-    subprocess.run(['kdialog', '--passivepopup', 'Downloading PhysX 9.23.1019 from NVIDIA…', '5'])
-    download_physx(local)
-    return local
+    return next((candidate for candidate in (local, cache) if matches(candidate, PHYSX_HASH)), None)
+
+
+def download_physx_with_progress(destination):
+    command = ['zenity', '--progress', f'--title=NVIDIA PhysX {PHYSX_VERSION}',
+               '--text=Connecting to NVIDIA…', '--percentage=0', '--width=440',
+               '--auto-close', '--no-cancel']
+    with subprocess.Popen(command, stdin=subprocess.PIPE, bufsize=0) as dialog:
+        def update(percent, message):
+            try:
+                dialog.stdin.write(f'#{message}\n{percent}\n'.encode())
+            except BrokenPipeError:
+                pass
+
+        try:
+            download_physx(destination, update)
+        except BaseException:
+            if dialog.poll() is None:
+                dialog.terminate()
+            raise
+
+
+def prepare_physx_package(state):
+    if find_physx_package(state) is None and confirm_physx_download():
+        download_physx_with_progress(state / PHYSX_NAME)
 
 
 def accept_nvidia_terms(archive, state):
@@ -183,7 +206,7 @@ def accept_nvidia_terms(archive, state):
         document.write(terms.decode('cp1252', errors='replace'))
         document.flush()
         result = subprocess.run([
-            'zenity', '--text-info', '--title=NVIDIA PhysX 9.23.1019',
+            'zenity', '--text-info', f'--title=NVIDIA PhysX {PHYSX_VERSION}',
             '--width=820', '--height=620', '--filename=' + document.name,
             '--checkbox=I have read and accept the NVIDIA license terms',
         ], check=False)
@@ -224,29 +247,26 @@ def install_batman_physx(archive, layout, prefix, state):
         raise RuntimeError(f'PhysX installation failed in the Batman Proton prefix. See {log_path}')
 
 
-def prepare_physx(apps, layout, state, temporary):
+def prepare_physx(apps, layout, state, temporary, patches):
     games = layout['games']
     alice = find_alice_files(apps, state) if '19680' in games else None
+    need_alice = '19680' in games and alice is None
     batman = Path(games['35140']['prefix']) if '35140' in games else None
-    need_batman = batman is not None and not batman_has_physx(batman)
-    setup_alice = ('19680' in games and alice is None
-                   and confirm_physx('Alice', 'the NVIDIA PhysX 2.8.4.11 files'))
-    setup_batman = (need_batman
-                    and confirm_physx('Batman', 'a registered PhysX 2.8.1 runtime in its Proton prefix'))
-    if setup_alice or setup_batman:
-        archive = acquire_physx(state)
-        if accept_nvidia_terms(archive, state):
-            if setup_alice:
+    need_batman = (batman is not None and any(patch.requires_nvidia_physx for patch in patches)
+                   and not batman_has_physx(batman))
+    if need_alice or need_batman:
+        archive = find_physx_package(state)
+        if archive is not None and accept_nvidia_terms(archive, state):
+            if need_alice:
                 alice = extract_alice_files(archive, temporary)
-            if setup_batman:
+            if need_batman:
                 install_batman_physx(archive, layout, batman, state)
-        else:
-            setup_batman = False
+                need_batman = False
     if alice is None:
         games.pop('19680', None)
-    if need_batman and not setup_batman:
-        games.pop('35140')
-    return alice
+    if need_batman:
+        patches = without_missing_dependencies(patch for patch in patches if not patch.requires_nvidia_physx)
+    return alice, patches, need_batman
 
 
 def check_payload(bundle):
@@ -304,8 +324,11 @@ def main():
         if subprocess.run(['pgrep', '-x', '|'.join(re.escape(p) for p in processes)],
                           stdout=subprocess.DEVNULL).returncode == 0:
             raise RuntimeError('Close Batman and Alice before running the installer.')
+        prepare_physx_package(STATE)
         previous = STATE / 'current' / RUNTIME_DIR / 'steam-layout.json'
-        choices = choose_launch_options(previous, games, BUNDLE / 'patches', LAUNCH_OPTIONS)
+        choices = choose_launch_options(previous, games, BUNDLE / 'patches', LAUNCH_OPTIONS,
+                                        PHYSX_VERSION, lambda: find_physx_package(STATE),
+                                        lambda: prepare_physx_package(STATE))
         if choices is None:
             return
         game_options, selected_patches = choices
@@ -313,12 +336,15 @@ def main():
             games[app_id]['launch_options'] = options
         detected = tuple(games)
         with tempfile.TemporaryDirectory(dir=STATE) as temp:
-            alice = prepare_physx(apps, layout, STATE, Path(temp))
-            skipped = '\n'.join(f'Deck Physics cannot launch {GAMES[app_id][0]} until its PhysX setup is complete.'
-                                for app_id in detected if app_id not in games)
+            alice, selected_patches, skipped_batman_patches = prepare_physx(
+                apps, layout, STATE, Path(temp), selected_patches)
+            skipped = [f'Deck Physics cannot launch {GAMES[app_id][0]} until its PhysX setup is complete.'
+                       for app_id in detected if app_id not in games]
+            if skipped_batman_patches:
+                skipped.append('Batman patches that require the NVIDIA package were skipped.')
             if not games:
                 subprocess.run(['kdialog', '--title', 'PhysX for Steam Deck', '--msgbox',
-                                'No games were configured.\n\n' + skipped], check=False)
+                                'No games were configured.\n\n' + '\n'.join(skipped)], check=False)
                 return
             launch = install_release(BUNDLE, STATE, layout, alice, manifest, selected_patches)
 
@@ -331,7 +357,7 @@ def main():
                     'Copy the line below into each game’s Launch Options.\n'
                     'Set PhysX to High in the game settings.')
     if skipped:
-        instructions += '\n\n' + skipped
+        instructions += '\n\n' + '\n'.join(skipped)
     subprocess.run(['kdialog', '--title', 'PhysX for Steam Deck', '--inputbox', instructions, option],
                    stdout=subprocess.DEVNULL, check=False)
 
