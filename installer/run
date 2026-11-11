@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 base="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-case "${SteamAppId:-}" in
-    35140|19680) ;;
-    *) echo 'This launch option is for Batman: Arkham Asylum GOTY and Alice: Madness Returns.' >&2; exit 2 ;;
-esac
 exec /usr/bin/python3 -B "$base/deck-runtime/chkuendig-proton-ab/Run-DeckPhysics.py" "$@"

@@ -1,6 +1,10 @@
 # Alice: Madness Returns
 
-Steam App ID **19680**. Startup verified on Steam Deck OLED with Valve Proton 11.0-2e. [Test environment](README.md)
+Steam App ID **19680**. Tested on Steam Deck OLED with Valve Proton 11.0-2e using the Steam library installation and a separate installation added as a Non-Steam shortcut. [Test environment](README.md)
+
+## Frame rate options
+
+The profile offers the game default (about 30 FPS), a 60 FPS cap, a 90 FPS cap, and Uncapped. Gameplay checks on the Non-Steam copy covered 90 FPS and Uncapped. VSync and Steam frame limits still apply.
 
 ## Reference performance
 

@@ -23,15 +23,31 @@ def bind_file(mount, source, target):
     mount.extend(('--ro-bind', str(source), str(target)))
 
 
+def select_game(command, steam_id, games):
+    if steam_id in games:
+        if games[steam_id].get('source', 'steam') == 'steam':
+            return steam_id
+        raise ValueError('Launch the selected executable from its Non-Steam shortcut.')
+
+    proton = next((i for i, arg in enumerate(command) if Path(arg).name == 'proton'), len(command))
+    executables = {Path(arg).resolve() for arg in command[proton + 1:] if Path(arg).suffix.lower() == '.exe'}
+    matching = [app_id for app_id, game in games.items()
+                if game.get('source') == 'manual' and Path(game['exe']) in executables]
+    if len(matching) == 1:
+        return matching[0]
+    raise ValueError('This Steam game or Non-Steam shortcut is not configured. Run the installer first.')
+
+
 def launch(command, work, app_id, layout):
     game = layout['games'][app_id]
     options = game.get('launch_options', layout.get('launch_options', {}))
     batman = app_id == '35140'
+    manual = game.get('source') == 'manual'
     executable = Path(game['exe'])
     proton = Path(layout['proton'])
     runtime = Path(layout['runtime'])
     allowed = {executable}
-    if batman:
+    if batman and not manual:
         allowed.update(executable.with_name(name) for name in ('BmLauncher.exe', 'BmStartApp.exe'))
     runtime_indices = [i for i, arg in enumerate(command) if Path(arg).name == runtime.name]
     proton_indices = [i for i, arg in enumerate(command) if Path(arg).name == 'proton']
@@ -43,7 +59,9 @@ def launch(command, work, app_id, layout):
     if (not ri < pi < gi or Path(command[ri]).resolve() != runtime
             or Path(command[pi]).resolve() != (proton / 'proton').resolve()):
         raise ValueError('Expected a Steam launch with the supported Valve Proton runtime.')
-    if Path(os.environ.get('STEAM_COMPAT_DATA_PATH', '')).resolve() != Path(game['prefix']):
+    steam_prefix = os.environ.get('STEAM_COMPAT_DATA_PATH')
+    prefix = Path(game['prefix'])
+    if not manual and (not steam_prefix or Path(steam_prefix).resolve() != prefix):
         raise ValueError('Expected the installed game’s Steam prefix.')
     wine = proton / 'files/lib/wine'
     if ((proton / 'version').read_text().strip() != VERSION
@@ -54,8 +72,15 @@ def launch(command, work, app_id, layout):
     if options.get('skip_startup_movies', True) and not any(
             arg.lower() == '-nostartupmovies' for arg in command[gi + 1:]):
         command.append('-nostartupmovies')
-    game_dir = executable.parents[1 if batman else 2]
+    frame_rate = 'default'
+    if app_id == '19680':
+        legacy = 'uncapped' if options.get('unlock_fps') is True else 'default'
+        frame_rate = options.get('frame_rate', legacy)
+        if frame_rate in ('60', '90', 'uncapped') and not any(
+                arg.lower() == '-nofpscap' for arg in command[gi + 1:]):
+            command.append('-NoFPSCap')
     mount = ['bwrap', '--dev-bind', '/', '/']
+    game_dir = executable if manual else executable.parents[1 if batman else 2]
     bind_file(mount, game_dir, game_dir)
     direct = BASE / 'valve11-legacy/files/lib'
     bridge = direct / 'wine-cuda/zluda'
@@ -78,6 +103,9 @@ def launch(command, work, app_id, layout):
                PROTON_FORCE_NVAPI='1', DXVK_ENABLE_NVAPI='1', DXVK_NVAPI_ALLOW_OTHER_DRIVERS='1',
                WINEDLLOVERRIDES='nvcuda=b', HSA_OVERRIDE_GFX_VERSION='10.3.0', WINEDEBUG='-all',
                ZLUDA_WINE_BACKEND_PATH=str(backend_dir / 'libcuda.so.1'))
+    if manual:
+        prefix.mkdir(parents=True, exist_ok=True)
+        env['STEAM_COMPAT_DATA_PATH'] = str(prefix)
     env.pop('PROTON_DISABLE_NVAPI', None)
     env.pop('CUDA_FAKE_LUID', None)
     if options.get('show_fps', True):
@@ -96,7 +124,7 @@ def launch(command, work, app_id, layout):
             raise ValueError(f'Files for {patch["id"]} are missing. Re-run the installer.')
         env.update(patch['environment'])
         env.update({key: str(path) for key, path in files.items()})
-    if not batman:
+    if app_id == '19680':
         physx = BASE.parent / 'input'
         overlay = work / 'game-dll'
         overlay.mkdir()
@@ -106,6 +134,11 @@ def launch(command, work, app_id, layout):
             os.link(dll, overlay / dll.name)
         mount += ['--overlay-src', str(executable.parent), '--overlay-src', str(overlay),
                   '--ro-overlay', str(executable.parent)]
+
+    if frame_rate in ('60', '90'):
+        config = env.get('DXVK_CONFIG')
+        limit = f'd3d9.maxFrameRate = {frame_rate}'
+        env['DXVK_CONFIG'] = f'{config};{limit}' if config else limit
 
     proton_lib = proton / 'files/lib/i386-linux-gnu'
     env['LD_LIBRARY_PATH'] = str(proton_lib) + ':' + env.get('LD_LIBRARY_PATH', '')
@@ -122,10 +155,8 @@ def launch(command, work, app_id, layout):
 
 
 def main(command):
-    app_id = os.environ.get('SteamAppId')
     layout = json.loads((BASE / 'steam-layout.json').read_text())
-    if app_id not in layout['games']:
-        raise ValueError('This Steam game is not configured. Run the installer first.')
+    app_id = select_game(command, os.environ.get('SteamAppId'), layout['games'])
     with (RELEASE / f'launch-{app_id}.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         with tempfile.TemporaryDirectory(prefix=f'play-{app_id}-', dir=RELEASE) as directory:

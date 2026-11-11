@@ -75,6 +75,72 @@ class PatchPackagesTest(unittest.TestCase):
             if selected:
                 self.assertEqual(generated.read_text(), 'game-prefix')
 
+    def test_installing_one_game_preserves_the_other_game_and_its_files(self):
+        self.make_patch('batman', '35140', 'generated', {
+            'files/prepare.py': 'from pathlib import Path\n'
+                                'assert not Path("prepared").exists()\n'
+                                'Path("prepared").write_text("Batman payload")\n',
+        }, prepare='prepare.py', file_environment={'EXAMPLE': 'prepared'})
+        self.make_patch('alice', '19680', 'settings', environment={'EXAMPLE': 'alice'})
+        patches, issues = discover_patches(self.folder, self.games)
+        self.assertFalse(issues)
+        state = self.root / 'state'
+        state.mkdir()
+        bundle = self.root / 'bundle'
+        (bundle / 'runtime').mkdir(parents=True)
+        (bundle / 'installer').mkdir()
+        (bundle / 'installer/run').touch()
+        dll = self.root / 'test.dll'
+        dll.write_bytes(b'verified Alice runtime')
+
+        def install(app_id, selected=(), alice=None, **options):
+            layout = {'games': {app_id: dict(self.games[app_id], launch_options=options)}}
+            INSTALLER.install_release(bundle, state, layout, alice, {}, selected)
+            release = state / 'current'
+            return INSTALLER.read_installed_layout(release)['games']
+
+        first = install('35140', [patches['35140:generated']], show_fps=False)
+        self.assertEqual(set(first), {'35140'})
+        batman_payload = state / 'current' / INSTALLER.RUNTIME_DIR / 'patches/35140/generated/prepared'
+        batman_payload.write_text('retained payload')
+        second = install('19680', [patches['19680:settings']], {'test.dll': dll}, show_fps=True)
+        self.assertEqual(second['35140'], first['35140'])
+        self.assertEqual(batman_payload.read_text(), 'retained payload')
+        self.assertEqual(second['19680']['patches'][0]['id'], 'settings')
+
+        third = install('35140', show_fps=True)
+        self.assertEqual(third['19680'], second['19680'])
+        self.assertEqual((state / 'current/deck-runtime/input/test.dll').read_bytes(), dll.read_bytes())
+        self.assertEqual(third['35140']['launch_options'], {'show_fps': True})
+        self.assertFalse(batman_payload.exists())
+
+    def test_game_titles_use_the_steam_library_name_with_a_fallback(self):
+        steam = self.root / 'Steam'
+        library = steam / 'steamapps'
+        runtime = library / 'common/SteamLinuxRuntime_4'
+        runtime.mkdir(parents=True)
+        (runtime / '_v2-entry-point').touch()
+        (library / 'libraryfolders.vdf').write_text('"libraryfolders"\n{\n}\n')
+        proton = library / 'common/Proton 11.0'
+        wine = proton / 'files/lib/wine/x86_64-unix/ntdll.so'
+        wine.parent.mkdir(parents=True)
+        wine.write_bytes(b'test Wine')
+        (proton / 'version').write_text(INSTALLER.VERSION)
+        for app_id, (_, exe_path) in INSTALLER.GAMES.items():
+            exe = library / 'common' / app_id / exe_path
+            exe.parent.mkdir(parents=True)
+            exe.touch()
+            (library / f'appmanifest_{app_id}.acf').write_text(f'"installdir" "{app_id}"\n')
+        with (library / 'appmanifest_35140.acf').open('a') as manifest:
+            manifest.write('"name" "Batman: Arkham Asylum (Steam library title)"\n')
+
+        with patch.object(INSTALLER, 'WINE_HASH', hashlib.sha256(wine.read_bytes()).hexdigest()):
+            apps, layout = INSTALLER.discover(steam)
+            self.assertEqual(INSTALLER.discover_runtime(apps)['proton'], str(proton.resolve()))
+        self.assertEqual(layout['games']['35140']['name'], 'Batman: Arkham Asylum (Steam library title)')
+        self.assertEqual(layout['games']['19680']['name'], 'Alice: Madness Returns')
+        self.assertTrue(all(game['source'] == 'steam' for game in layout['games'].values()))
+
     def test_missing_dependency_and_conflicting_variables_are_rejected(self):
         self.make_patch('batman', '35140', 'base', environment={'SETTING': '1'})
         self.make_patch('batman', '35140', 'child', requires=['base'])
@@ -151,7 +217,7 @@ class PatchPackagesTest(unittest.TestCase):
             INSTALLER.prepare_physx_package(self.root)
             INSTALLER.prepare_physx_package(self.root)
             self.assertEqual(INSTALLER.find_physx_package(self.root), archive)
-        confirm.assert_called_once_with()
+        confirm.assert_called_once_with(archive)
         download.assert_called_once_with(archive)
 
     def test_download_reaches_100_only_after_package_verification(self):
