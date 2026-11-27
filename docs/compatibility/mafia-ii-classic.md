@@ -20,9 +20,10 @@ render path. The installed executable stays intact.
 
 ## Performance reference
 
-The built-in benchmark averaged **76.7 FPS** on a Steam Deck OLED on AC
-with GPU clocks in automatic mode. The corresponding original-packing run
-averaged **74.4 FPS**. The run used 1280 × 800, Valve Proton 11.0-2e,
+The built-in benchmark averaged **13.5 FPS** on stock Valve Proton 11.0-3
+and **76.7 FPS** on AC with the full Deck Physics profile on Valve Proton
+11.0-2e. Both were measured on Steam Deck OLED at APEX PhysX High. The
+Proton versions and physics setup differed between those runs. The run used 1280 × 800, Valve Proton 11.0-2e,
 APEX PhysX High, all effects, the three patches above, and VSync and antialiasing
 off. Returning to the main menu from gameplay and interrupting the benchmark
 were also verified with the patch active.
