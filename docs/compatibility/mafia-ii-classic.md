@@ -1,15 +1,28 @@
 # Mafia II Classic
 
-The development installer detects the original game under Steam App ID **50130** and its `pc/mafia2.exe`. Mafia II: Definitive Edition uses a different executable and profile.
+Deck Physics detects the Steam release of Mafia II Classic under App ID **50130**.
+The GPU Clothing patch targets this release and its installed PhysX 2.8.3 runtime.
+Mafia II: Definitive Edition is outside the tested profile.
 
 ## Setup
 
 1. Launch the game from Steam once so its original prerequisites can finish installing, then close it.
-2. In Deck Physics, select **Mafia II (Classic)** and choose **Set Up Game**. The optional **Six-CU graphics mask** and **Blocking GPU waits** use the same components as the other profiles.
-3. Paste the launch command into the game's Steam launch options. Select **Proton 11.0** in Steam and set **APEX PhysX** to **High** in the game. See [Proton updates](../installation.md#proton-updates) for the GPU bridge requirements.
+2. In Deck Physics, select **Mafia II (Classic)**. Click **Download patches**, select
+   **GPU Clothing**, **Six-CU graphics mask**, and **Blocking GPU waits**, then click **Set Up Game**.
+3. Paste the resulting command into the game's Steam launch options. Select **Proton 11.0**
+   in Steam and set **APEX PhysX** to **High** in the game. See
+   [Proton updates](../installation.md#proton-updates) for the GPU bridge requirements.
 
-The profile uses the installed game and its PhysX files. It can show the FPS counter and skip `Logos.bik` and `NVidia_logo.bik` for the game session. Other videos stay available.
+The profile can show the FPS counter and skip the publisher and NVIDIA intro videos.
+The GPU Clothing patch prepares compatible files from the installed game and
+mounts them for the session. The game runs its original executable.
 
-## Experimental performance work
+## Performance reference
 
-The base profile can run compatible PhysX workloads through the GPU bridge. Mafia II's APEX clothing route, inactive profiling guard, selected HIP fill and vertex packing experiments act on specific versions of the game and physics modules. The base profile uses the original clothing route and game code. A performance package for those experiments would need its own game and input verification and can be developed separately from this installer.
+The built-in benchmark averaged **73.8 FPS** on a Steam Deck OLED on battery
+with GPU clocks in automatic mode. The run used 1280 × 800, Valve Proton 11.0-2e,
+APEX PhysX High, all effects, the three patches above, and VSync and antialiasing
+off. Returning to the main menu from gameplay and interrupting the benchmark
+were also verified with the patch active.
+
+See the [GPU Clothing patch and benchmark details](https://github.com/mbushuev/deck-physics-patches/blob/main/docs/mafia-ii-benchmarks.md).

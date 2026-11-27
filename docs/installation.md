@@ -5,18 +5,18 @@ Deck Physics bundles compatibility components and configures how Steam starts yo
 ## Requirements
 
 - Steam Deck running SteamOS with its built-in Steam client and a copy of a game from the [tested compatibility list](compatibility/README.md).
-- **Valve Proton 11.0** and **Steam Linux Runtime 4** for GPU physics. Select **Proton 11.0** under each game's **Properties → Compatibility** and let Steam finish installing both. The published 0.1.0 installer requires the 11.0-2e build. [Development builds handle Proton updates automatically](#proton-updates).
+- **Valve Proton 11.0** and **Steam Linux Runtime 4** for GPU physics. Select **Proton 11.0** under each game's **Properties → Compatibility** and let Steam finish installing both. The packaged bridge matches the Wine binaries in the 11.0-2e build. See [Proton updates](#proton-updates) for how Deck Physics handles newer builds.
 - Desktop Mode and your regular user account for setup. The installer uses Python 3.11 or later, GTK 3 with PyGObject, Bubblewrap with read-only overlay support, 7-Zip, KDialog, and Zenity. The optional FPS counter uses MangoHud.
 
 ## Proton updates
 
-Development builds check the selected Wine binaries at every launch. When Wine matches the packaged GPU bridge, Deck Physics uses the Steam-selected compatibility tool. If Steam has updated Wine, Deck Physics looks for a compatible complete Proton installation in the Steam libraries or an existing Steam depot download. It can use that installation for this game session while Steam keeps the selected tool and its files in place.
+Deck Physics checks the selected Wine binaries at every launch. When Wine matches the packaged GPU bridge, Deck Physics uses the Steam-selected compatibility tool. If Steam has updated Wine, Deck Physics looks for a compatible complete Proton installation in the Steam libraries or an existing Steam depot download. It can use that installation for this game session while Steam keeps the selected tool and its files in place.
 
 The packaged GPU bridge currently matches Wine from Valve Proton 11.0-2e. When no compatible installation is present, the game starts with the tool selected in Steam and standard settings. Deck Physics records the chosen path or the reason for the standard launch in the installation's per-game launch log. GPU physics and Deck Physics patches require a compatible Wine installation.
 
 ## Get the installer
 
-Setup uses a single installer `.tar.gz`. Download it from **Releases** when a tagged release is available. For a development build, sign in to GitHub and open **Actions → Build installer**. Open a successful run with available artifacts, download `DeckPhysics-Proton11-<version>`, and extract the ZIP to get the installer `.tar.gz`.
+Setup uses a single installer `.tar.gz`. Get it from the [latest GitHub release](https://github.com/mbushuev/deck-physics/releases/latest/download/DeckPhysics-Installer.tar.gz). For a development build, sign in to GitHub and open **Actions → Build installer**. Open a successful run with available artifacts, download `DeckPhysics-Proton11-<version>`, and extract the ZIP to get the installer `.tar.gz`.
 
 ## Install and launch
 

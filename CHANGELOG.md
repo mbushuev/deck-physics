@@ -1,9 +1,9 @@
 # Changelog
 
-## Unreleased
+## [0.2.0](docs/release-notes/0.2.0.md)
 
 - Check Wine compatibility at launch and keep games playable with Steam's selected tool after a Proton update.
-- Add a Mafia II Classic profile with startup movie skipping, the FPS counter and optional GPU scheduling patches.
+- Add a Mafia II Classic profile with intro skipping, the FPS counter, and optional GPU Clothing. The supported patch keeps the original executable so the game can return to the main menu.
 - Support read-only per-game file replacements that check the installed game version at setup and launch.
 - Download and verify patch sets for the selected game from the Deck Physics patch catalog.
 

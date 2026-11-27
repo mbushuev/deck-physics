@@ -1,15 +1,15 @@
-[![Deck Physics 0.1.0](.github/artwork/releases/deck-physics-0.1.0.svg)](https://github.com/mbushuev/deck-physics/releases/latest)
+[![Deck Physics 0.2.0](.github/artwork/releases/deck-physics-0.2.0.svg)](https://github.com/mbushuev/deck-physics/releases/latest)
 
 [![Download Installer](docs/media/download-installer.svg)](https://github.com/mbushuev/deck-physics/releases/latest/download/DeckPhysics-Installer.tar.gz)
 
 Deck Physics sets up performance profiles for classic games on Steam Deck. Configure launch options and optional performance and battery patches for each game.
 
-**Version [0.1.0](VERSION)** · [Installation](docs/installation.md) · [Tested compatibility](docs/compatibility/README.md) · [Build from source](docs/build.md) · [Changelog](CHANGELOG.md)
+**Version [0.2.0](VERSION)** · [Installation](docs/installation.md) · [Tested compatibility](docs/compatibility/README.md) · [Build from source](docs/build.md) · [Changelog](CHANGELOG.md)
 
 ## Quick start
 
 1. Get the [installer archive](docs/installation.md#get-the-installer) and extract the `.tar.gz` on the Deck.
-2. In Steam, select **Proton 11.0** under the game's **Properties → Compatibility**. For GPU physics requirements and how development builds handle Proton updates, see the [installation guide](docs/installation.md#proton-updates).
+2. In Steam, select **Proton 11.0** under the game's **Properties → Compatibility**. For GPU physics requirements and how Deck Physics handles Proton updates, see the [installation guide](docs/installation.md#proton-updates).
 3. In Desktop Mode, run `Install.sh`. Select a game, review its launch options and patches, then click **Set Up Game**.
 4. Copy the command from the setup summary, including `%command%`, into the game's **Launch Options** in Steam. Launch from Desktop Mode or Gaming Mode.
 
