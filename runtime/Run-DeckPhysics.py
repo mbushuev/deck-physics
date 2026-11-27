@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Launch the Steam-selected Valve Proton with the pinned GPU PhysX bridge."""
+"""Launch Steam games with the GPU PhysX bridge when compatible Wine is available."""
 
 import fcntl
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -11,16 +10,26 @@ import sys
 import tempfile
 
 from alice_bridge_patch import patch_null_host_free
+from patch_replacements import original_file, replacement_file, validate_replacements
+from proton_compatibility import RUNTIME, STEAM, select_bridge_proton
 
 
 BASE = Path(__file__).resolve().parent
 RELEASE = BASE.parent.parent
-WINE_HASH = 'e67b173fbb06ed42a15de73c50024403c2a825e0b044b737005940b87ff5ef9e'
-VERSION = '1791559474 proton-11.0-2e-x86_64'
 
 
 def bind_file(mount, source, target):
     mount.extend(('--ro-bind', str(source), str(target)))
+
+
+def hide_mafia_intro_movies(mount, executable):
+    videos = executable.parent / 'sds/video'
+    if not videos.is_dir():
+        return
+    mount.extend(('--tmpfs', str(videos)))
+    for entry in sorted(videos.iterdir()):
+        if entry.name.lower() not in ('logos.bik', 'nvidia_logo.bik'):
+            bind_file(mount, entry, entry)
 
 
 def select_game(command, steam_id, games):
@@ -44,32 +53,45 @@ def launch(command, work, app_id, layout):
     batman = app_id == '35140'
     manual = game.get('source') == 'manual'
     executable = Path(game['exe'])
-    proton = Path(layout['proton'])
-    runtime = Path(layout['runtime'])
     allowed = {executable}
     if batman and not manual:
         allowed.update(executable.with_name(name) for name in ('BmLauncher.exe', 'BmStartApp.exe'))
-    runtime_indices = [i for i, arg in enumerate(command) if Path(arg).name == runtime.name]
+    runtime_indices = [i for i, arg in enumerate(command) if Path(arg).name == RUNTIME.name]
     proton_indices = [i for i, arg in enumerate(command) if Path(arg).name == 'proton']
     game_indices = [i for i, arg in enumerate(command) if Path(arg).suffix.lower() == '.exe'
                     and Path(arg).resolve() in allowed]
-    if not len(runtime_indices) == len(proton_indices) == len(game_indices) == 1:
-        raise ValueError('Expected a Steam launch with Valve Proton 11.0 selected.')
-    ri, pi, gi = runtime_indices[0], proton_indices[0], game_indices[0]
-    if (not ri < pi < gi or Path(command[ri]).resolve() != runtime
-            or Path(command[pi]).resolve() != (proton / 'proton').resolve()):
-        raise ValueError('Expected a Steam launch with the supported Valve Proton runtime.')
+    if len(game_indices) != 1:
+        raise ValueError('Expected a Steam launch of the configured game.')
+    gi = game_indices[0]
     steam_prefix = os.environ.get('STEAM_COMPAT_DATA_PATH')
     prefix = Path(game['prefix'])
     if not manual and (not steam_prefix or Path(steam_prefix).resolve() != prefix):
         raise ValueError('Expected the installed game’s Steam prefix.')
-    wine = proton / 'files/lib/wine'
-    if ((proton / 'version').read_text().strip() != VERSION
-            or hashlib.sha256((wine / 'x86_64-unix/ntdll.so').read_bytes()).hexdigest() != WINE_HASH):
-        raise ValueError('Valve Proton changed. This release requires Proton 11.0-2e.')
+    launch_env = os.environ.copy()
+    if manual:
+        prefix.mkdir(parents=True, exist_ok=True)
+        launch_env['STEAM_COMPAT_DATA_PATH'] = str(prefix)
+
+    log_path = RELEASE / f'launch-{app_id}.log'
+    selected = None
+    proton = None
+    if (len(runtime_indices) == len(proton_indices) == 1
+            and runtime_indices[0] < proton_indices[0] < gi
+            and Path(command[runtime_indices[0]]).resolve().parent.name == RUNTIME.parent.name):
+        pi = proton_indices[0]
+        selected = Path(command[pi]).resolve().parent
+        proton = select_bridge_proton(selected, Path(layout.get('steam', STEAM)), layout.get('proton'))
+    if proton is None:
+        message = ('Deck Physics found no Wine build matching the GPU bridge for this Steam launch. '
+                   'Starting with Steam’s selected tool and the game’s standard settings.')
+        print(message, file=sys.stderr)
+        with log_path.open('w') as log:
+            print(message, file=log, flush=True)
+            return subprocess.call(command, env=launch_env, stdout=log, stderr=subprocess.STDOUT)
 
     command[gi] = str(executable)
-    if options.get('skip_startup_movies', True) and not any(
+    skip_movies = options.get('skip_startup_movies', True)
+    if app_id != '50130' and skip_movies and not any(
             arg.lower() == '-nostartupmovies' for arg in command[gi + 1:]):
         command.append('-nostartupmovies')
     frame_rate = 'default'
@@ -80,8 +102,14 @@ def launch(command, work, app_id, layout):
                 arg.lower() == '-nofpscap' for arg in command[gi + 1:]):
             command.append('-NoFPSCap')
     mount = ['bwrap', '--dev-bind', '/', '/']
-    game_dir = executable if manual else executable.parents[1 if batman else 2]
+    if proton != selected:
+        # Keep Steam's argv and tool paths intact inside this launch's namespace.
+        mount.extend(('--bind', str(proton), str(selected)))
+    wine = selected / 'files/lib/wine'
+    game_dir = executable if manual else executable.parents[1 if app_id in ('35140', '50130') else 2]
     bind_file(mount, game_dir, game_dir)
+    if app_id == '50130' and skip_movies:
+        hide_mafia_intro_movies(mount, executable)
     direct = BASE / 'valve11-legacy/files/lib'
     bridge = direct / 'wine-cuda/zluda'
     win32 = work / 'nvcuda.dll'
@@ -92,26 +120,25 @@ def launch(command, work, app_id, layout):
         relative = Path('nvapi') / arch / dll
         bind_file(mount, direct / 'wine' / relative, wine / relative)
     unix = wine / 'x86_64-unix'
-    mount += ['--overlay-src', str(bridge / unix.name), '--overlay-src', str(unix),
+    mount += ['--overlay-src', str(bridge / unix.name),
+              '--overlay-src', str(proton / 'files/lib/wine' / unix.name),
               '--ro-overlay', str(unix)]
     bind_file(mount, direct / 'wine/x86_64-unix/ntdll.so', unix / 'ntdll.so')
 
-    env = {key: value for key, value in os.environ.items()
+    env = {key: value for key, value in launch_env.items()
            if not key.startswith(('ARKHAM_', 'BATMA_', 'ALICE_', 'ZLUDA', 'PROTON_LOG'))}
     backend_dir = direct.with_name('lib64')
     env.update(PROTON_USE_WOW64='1', PROTON_ENABLE_ZLUDA='1', PROTON_ENABLE_NVAPI='1',
                PROTON_FORCE_NVAPI='1', DXVK_ENABLE_NVAPI='1', DXVK_NVAPI_ALLOW_OTHER_DRIVERS='1',
                WINEDLLOVERRIDES='nvcuda=b', HSA_OVERRIDE_GFX_VERSION='10.3.0', WINEDEBUG='-all',
                ZLUDA_WINE_BACKEND_PATH=str(backend_dir / 'libcuda.so.1'))
-    if manual:
-        prefix.mkdir(parents=True, exist_ok=True)
-        env['STEAM_COMPAT_DATA_PATH'] = str(prefix)
     env.pop('PROTON_DISABLE_NVAPI', None)
     env.pop('CUDA_FAKE_LUID', None)
     if options.get('show_fps', True):
         env['MANGOHUD'] = '1'
         env.setdefault('MANGOHUD_CONFIG', 'fps,frametime')
     preloads = []
+    replacements = {}
     for patch in game.get('patches', ()):
         root = BASE / 'patches' / app_id / patch['id']
         files = {key: root / name for key, name in patch['file_environment'].items()}
@@ -122,6 +149,11 @@ def launch(command, work, app_id, layout):
             preloads.append(str(preload))
         if any(not path.is_file() for path in required):
             raise ValueError(f'Files for {patch["id"]} are missing. Re-run the installer.')
+        for entry in validate_replacements(patch.get('replacements', [])):
+            target = original_file(entry, game)
+            if target in replacements:
+                raise ValueError(f'Multiple patches replace {entry["target"]}. Review the selected patches.')
+            replacements[target] = replacement_file(entry, root)
         env.update(patch['environment'])
         env.update({key: str(path) for key, path in files.items()})
     if app_id == '19680':
@@ -134,13 +166,15 @@ def launch(command, work, app_id, layout):
             os.link(dll, overlay / dll.name)
         mount += ['--overlay-src', str(executable.parent), '--overlay-src', str(overlay),
                   '--ro-overlay', str(executable.parent)]
+    for target, source in replacements.items():
+        bind_file(mount, source, target)
 
     if frame_rate in ('60', '90'):
         config = env.get('DXVK_CONFIG')
         limit = f'd3d9.maxFrameRate = {frame_rate}'
         env['DXVK_CONFIG'] = f'{config};{limit}' if config else limit
 
-    proton_lib = proton / 'files/lib/i386-linux-gnu'
+    proton_lib = selected / 'files/lib/i386-linux-gnu'
     env['LD_LIBRARY_PATH'] = str(proton_lib) + ':' + env.get('LD_LIBRARY_PATH', '')
     libs = f'{backend_dir}:{BASE / "valve11-addon/lib"}'
     command[pi:pi] = [
@@ -150,7 +184,9 @@ def launch(command, work, app_id, layout):
         'shift 2; exec "$@"',
         'deck-physics-runtime', libs, ':'.join(preloads),
     ]
-    with (RELEASE / f'launch-{app_id}.log').open('w') as log:
+    with log_path.open('w') as log:
+        if proton != selected:
+            print(f'Deck Physics is using compatible Proton from {proton}', file=log, flush=True)
         return subprocess.call(mount + ['--'] + command, env=env, stdout=log, stderr=subprocess.STDOUT)
 
 

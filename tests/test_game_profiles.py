@@ -23,6 +23,7 @@ INSTALLER = load('game_setup', 'installer/Install-DeckPhysics.py')
 RUNTIME = load('game_runtime', 'runtime/Run-DeckPhysics.py')
 
 from PatchDialog import PatchDialog
+import proton_compatibility as COMPAT
 
 
 class GameProfilesTest(unittest.TestCase):
@@ -33,10 +34,68 @@ class GameProfilesTest(unittest.TestCase):
 
     def test_catalog_is_visible_without_games_or_proton(self):
         apps, layout = INSTALLER.discover(self.root / 'Steam')
-        self.assertEqual(set(layout['games']), {'35140', '19680'})
+        self.assertEqual(set(layout['games']), {'35140', '19680', '50130'})
         self.assertTrue(all(set(game) == {'name'} for game in layout['games'].values()))
-        with self.assertRaisesRegex(RuntimeError, 'requires Valve Proton'):
-            INSTALLER.discover_runtime(apps)
+        self.assertEqual(INSTALLER.discover_runtime(apps), {'proton': None, 'runtime': None})
+
+    def test_discovers_steam_mafia_classic(self):
+        steam = self.root / 'Steam'
+        apps = steam / 'steamapps'
+        exe = apps / 'common/Mafia II/pc/mafia2.exe'
+        exe.parent.mkdir(parents=True)
+        exe.touch()
+        (apps / 'appmanifest_50130.acf').write_text('  "installdir"  "Mafia II"\n')
+        _, layout = INSTALLER.discover(steam)
+        self.assertEqual(layout['games']['50130']['exe'], str(exe))
+        self.assertEqual(layout['games']['50130']['prefix'], str(apps / 'compatdata/50130'))
+
+    def test_compatible_depot_is_selected_without_a_version_label(self):
+        steam = self.root / 'Steam'
+        selected = steam / 'steamapps/common/Proton 11.0'
+        cached = steam / 'steamrt64/steamapps/content/app_4628710/depot_4628711'
+        relative = 'x86_64-unix/ntdll.so'
+        for tool, binary in ((selected, b'new Wine'), (cached, b'compatible Wine')):
+            wine = tool / 'files/lib/wine' / relative
+            wine.parent.mkdir(parents=True)
+            wine.write_bytes(binary)
+            (tool / 'proton').touch()
+        abi = {relative: hashlib.sha256(b'compatible Wine').hexdigest()}
+        with patch.object(COMPAT, 'WINE_ABI', abi):
+            self.assertEqual(COMPAT.select_bridge_proton(selected, steam), cached)
+            self.assertEqual(COMPAT.select_bridge_proton(cached, steam), cached)
+            (cached / 'files/lib/wine' / relative).write_bytes(b'updated Wine')
+            self.assertIsNone(COMPAT.select_bridge_proton(selected, steam))
+
+    def test_incompatible_tool_starts_original_command_without_bridge(self):
+        app_id = '50130'
+        exe = self.root / 'games/Mafia II/pc/mafia2.exe'
+        entry = self.root / COMPAT.RUNTIME
+        proton = self.root / 'Proton 12.0' / 'proton'
+        command = [str(entry), str(proton), 'waitforexitandrun', str(exe)]
+        prefix = self.root / 'compatdata' / app_id
+        layout = {'games': {app_id: {'exe': str(exe), 'prefix': str(prefix)}}}
+        with (patch.object(RUNTIME, 'select_bridge_proton', return_value=None),
+              patch.object(RUNTIME, 'RELEASE', self.root),
+              patch.object(RUNTIME, 'patch_null_host_free') as patch_bridge,
+              patch.object(RUNTIME.subprocess, 'call', return_value=0) as run,
+              patch.dict(RUNTIME.os.environ, {'STEAM_COMPAT_DATA_PATH': str(prefix)}, clear=True)):
+            self.assertEqual(RUNTIME.launch(command, self.root, app_id, layout), 0)
+        patch_bridge.assert_not_called()
+        self.assertEqual(run.call_args.args[0], command)
+        self.assertNotIn('PROTON_ENABLE_ZLUDA', run.call_args.kwargs['env'])
+        self.assertIn('standard settings', (self.root / f'launch-{app_id}.log').read_text())
+
+    def test_mafia_intro_skip_preserves_other_movies(self):
+        exe = self.root / 'Mafia II/pc/mafia2.exe'
+        videos = exe.parent / 'sds/video'
+        videos.mkdir(parents=True)
+        for movie in ('Logos.bik', 'NVidia_logo.bik', 'fmv0000.bik'):
+            (videos / movie).touch()
+        mount = []
+        RUNTIME.hide_mafia_intro_movies(mount, exe)
+        cutscene = str(videos / 'fmv0000.bik')
+        self.assertEqual(mount, ['--tmpfs', str(videos), '--ro-bind', cutscene, cutscene])
+        self.assertTrue((videos / 'Logos.bik').exists())
 
     def test_manual_choice_uses_a_stable_separate_prefix_and_rejects_duplicates(self):
         _, layout = INSTALLER.discover(self.root / 'Steam')
@@ -111,17 +170,13 @@ class GameProfilesTest(unittest.TestCase):
         prefix = self.root / 'manual-prefix'
         shortcut_prefix = self.root / 'steam-shortcut-prefix'
         proton = self.root / 'Proton 11.0'
-        wine = proton / 'files/lib/wine/x86_64-unix/ntdll.so'
-        wine.parent.mkdir(parents=True)
-        wine.write_bytes(b'test Wine')
-        (proton / 'version').write_text(RUNTIME.VERSION)
-        runtime = self.root / '_v2-entry-point'
+        runtime = self.root / COMPAT.RUNTIME
         executable = self.root / 'games/Batman/Binaries/manual.exe'
         layout = {'proton': str(proton), 'runtime': str(runtime), 'games': {
             '35140': {'source': 'manual', 'prefix': str(prefix), 'exe': str(executable)}}}
         command = [str(runtime), str(proton / 'proton'), 'waitforexitandrun', str(executable)]
 
-        with (patch.object(RUNTIME, 'WINE_HASH', hashlib.sha256(wine.read_bytes()).hexdigest()),
+        with (patch.object(RUNTIME, 'select_bridge_proton', return_value=proton),
               patch.object(RUNTIME, 'RELEASE', release), patch.object(RUNTIME, 'patch_null_host_free'),
               patch.object(RUNTIME.subprocess, 'call', return_value=0) as run,
               patch.dict(RUNTIME.os.environ, {'STEAM_COMPAT_DATA_PATH': str(shortcut_prefix)})):
@@ -132,14 +187,49 @@ class GameProfilesTest(unittest.TestCase):
         self.assertIn(str(executable), run.call_args.args[0])
         self.assertNotIn('-NoFPSCap', run.call_args.args[0])
 
+    def test_game_and_prefix_replacements_are_read_only_and_check_updates(self):
+        exe = self.root / 'Game/pc/game.exe'
+        prefix = self.root / 'prefix'
+        engine = prefix / 'Program Files (x86)/Engine/engine.dll'
+        patch_dir = self.root / 'runtime/patches/50130/performance'
+        for path in (exe, engine, patch_dir / 'new.exe', patch_dir / 'new.dll'):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'original' if path in (exe, engine) else b'replacement')
+        digest = hashlib.sha256(b'original').hexdigest()
+        replacements = [
+            {'root': 'game', 'target': 'game.exe', 'source': 'new.exe', 'original_sha256': digest},
+            {'root': 'prefix', 'target': 'Program Files (x86)/Engine/engine.dll',
+             'source': 'new.dll', 'original_sha256': digest},
+        ]
+        layout = {'games': {'50130': {'exe': str(exe), 'prefix': str(prefix), 'patches': [
+            {'id': 'performance', 'file_environment': {}, 'preload': None, 'environment': {},
+             'replacements': replacements},
+        ]}}}
+        proton = self.root / 'Proton 11.0'
+        argv = [str(self.root / COMPAT.RUNTIME), str(proton / 'proton'), 'waitforexitandrun', str(exe)]
+        with (patch.object(RUNTIME, 'BASE', self.root / 'runtime'),
+              patch.object(RUNTIME, 'RELEASE', self.root),
+              patch.object(RUNTIME, 'select_bridge_proton', return_value=proton),
+              patch.object(RUNTIME, 'patch_null_host_free'),
+              patch.object(RUNTIME.subprocess, 'call', return_value=0) as run,
+              patch.dict(RUNTIME.os.environ, {'STEAM_COMPAT_DATA_PATH': str(prefix)})):
+            self.assertEqual(RUNTIME.launch(argv.copy(), self.root, '50130', layout), 0)
+            command = run.call_args.args[0]
+            for original, name in ((exe, 'new.exe'), (engine, 'new.dll')):
+                position = command.index(str(patch_dir / name))
+                self.assertEqual(command[position - 1:position + 2],
+                                 ['--ro-bind', str(patch_dir / name), str(original)])
+                self.assertEqual(original.read_bytes(), b'original')
+            run.reset_mock()
+            engine.write_bytes(b'updated')
+            with self.assertRaisesRegex(ValueError, 'does not support'):
+                RUNTIME.launch(argv.copy(), self.root, '50130', layout)
+            run.assert_not_called()
+
     def test_alice_frame_rate_option_applies_the_game_flag_and_optional_dxvk_limit(self):
         release = self.root / 'release'
-        runtime = self.root / '_v2-entry-point'
+        runtime = self.root / COMPAT.RUNTIME
         proton = self.root / 'Proton 11.0'
-        wine = proton / 'files/lib/wine/x86_64-unix/ntdll.so'
-        wine.parent.mkdir(parents=True)
-        wine.write_bytes(b'test Wine')
-        (proton / 'version').write_text(RUNTIME.VERSION)
         executable = self.root / 'Alice.exe'
         game = {'source': 'manual', 'prefix': str(self.root / 'prefix'), 'exe': str(executable)}
         layout = {'proton': str(proton), 'runtime': str(runtime), 'games': {'19680': game}}
@@ -157,7 +247,7 @@ class GameProfilesTest(unittest.TestCase):
                 game['launch_options'] = {'show_fps': False, **options}
                 command = [str(runtime), str(proton / 'proton'), 'waitforexitandrun',
                            str(executable), *existing]
-                with (patch.object(RUNTIME, 'WINE_HASH', hashlib.sha256(wine.read_bytes()).hexdigest()),
+                with (patch.object(RUNTIME, 'select_bridge_proton', return_value=proton),
                       patch.object(RUNTIME, 'RELEASE', release), patch.object(RUNTIME, 'patch_null_host_free'),
                       patch.dict(RUNTIME.os.environ, {'DXVK_CONFIG': config}, clear=True),
                       patch.object(RUNTIME.os, 'link'), patch.object(RUNTIME.subprocess, 'call') as run):

@@ -122,10 +122,9 @@ class PatchPackagesTest(unittest.TestCase):
         (runtime / '_v2-entry-point').touch()
         (library / 'libraryfolders.vdf').write_text('"libraryfolders"\n{\n}\n')
         proton = library / 'common/Proton 11.0'
-        wine = proton / 'files/lib/wine/x86_64-unix/ntdll.so'
-        wine.parent.mkdir(parents=True)
-        wine.write_bytes(b'test Wine')
-        (proton / 'version').write_text(INSTALLER.VERSION)
+        proton.mkdir()
+        (proton / 'proton').touch()
+        (proton / 'version').write_text('updated build with a new Wine ABI')
         for app_id, (_, exe_path) in INSTALLER.GAMES.items():
             exe = library / 'common' / app_id / exe_path
             exe.parent.mkdir(parents=True)
@@ -134,12 +133,26 @@ class PatchPackagesTest(unittest.TestCase):
         with (library / 'appmanifest_35140.acf').open('a') as manifest:
             manifest.write('"name" "Batman: Arkham Asylum (Steam library title)"\n')
 
-        with patch.object(INSTALLER, 'WINE_HASH', hashlib.sha256(wine.read_bytes()).hexdigest()):
-            apps, layout = INSTALLER.discover(steam)
-            self.assertEqual(INSTALLER.discover_runtime(apps)['proton'], str(proton.resolve()))
+        apps, layout = INSTALLER.discover(steam)
+        self.assertEqual(INSTALLER.discover_runtime(apps)['proton'], str(proton.resolve()))
         self.assertEqual(layout['games']['35140']['name'], 'Batman: Arkham Asylum (Steam library title)')
         self.assertEqual(layout['games']['19680']['name'], 'Alice: Madness Returns')
         self.assertTrue(all(game['source'] == 'steam' for game in layout['games'].values()))
+
+    def test_replacements_reject_traversal_and_conflicting_targets(self):
+        entry = {'root': 'game', 'target': 'test.dll', 'source': 'generated/test.dll',
+                 'original_sha256': hashlib.sha256(b'original').hexdigest()}
+        files = {'files/generated/test.dll': b'replacement'}
+        self.make_patch('alice', '19680', 'first', files, replacements=[entry])
+        self.make_patch('alice', '19680', 'second', files,
+                        replacements=[{**entry, 'target': 'TEST.dll'}])
+        self.make_patch('alice', '19680', 'unsafe', files,
+                        replacements=[{**entry, 'target': '../test.dll'}])
+        patches, issues = discover_patches(self.folder, self.games)
+        self.assertEqual(len(issues), 1)
+        self.assertIn('Invalid patch replacement', issues[0])
+        with self.assertRaisesRegex(ValueError, 'replaces the same file'):
+            validate_selection(patches, set(patches))
 
     def test_missing_dependency_and_conflicting_variables_are_rejected(self):
         self.make_patch('batman', '35140', 'base', environment={'SETTING': '1'})

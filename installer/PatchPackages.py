@@ -12,16 +12,14 @@ import sys
 import tempfile
 from zipfile import BadZipFile, ZipFile
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'runtime'))
+from patch_replacements import checksum, original_file, replacement_file, validate_replacements
+
 
 PATCH_NAME = '*.deckphysx.zip'
 PATCH_ID = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*')
 ENV_NAME = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
 PATH_PART = re.compile(r'[A-Za-z0-9_.-]+')
-
-
-def checksum(path):
-    with path.open('rb') as source:
-        return hashlib.file_digest(source, 'sha256').hexdigest()
 
 
 def relative_path(value):
@@ -62,16 +60,22 @@ class Patch:
     preload: str | None
     prepare: str | None
     requires_nvidia_physx: bool
+    replacements: list
 
     @property
     def key(self):
         return f'{self.app_id}:{self.id}'
 
     def launch_settings(self):
-        return {'id': self.id, 'sha256': self.sha256, 'environment': self.environment,
-                'file_environment': self.file_environment, 'preload': self.preload}
+        settings = {'id': self.id, 'sha256': self.sha256, 'environment': self.environment,
+                    'file_environment': self.file_environment, 'preload': self.preload}
+        if self.replacements:
+            settings['replacements'] = self.replacements
+        return settings
 
     def install(self, target, game):
+        for entry in self.replacements:
+            original_file(entry, game)
         with tempfile.TemporaryDirectory(dir=target.parent) as work:
             snapshot = Path(work) / 'patch.zip'
             shutil.copyfile(self.path, snapshot)
@@ -95,6 +99,8 @@ class Patch:
             required.append(self.preload)
         if missing := next((name for name in required if not (target / name).is_file()), None):
             raise ValueError(f'{self.title} did not provide {missing}')
+        for entry in self.replacements:
+            replacement_file(entry, target)
 
 
 def read_patch(path):
@@ -109,7 +115,7 @@ def read_patch(path):
         sha256 = hashlib.file_digest(source, 'sha256').hexdigest()
     required = {'format', 'id', 'app_id', 'title', 'description'}
     optional = {'details', 'requires', 'environment', 'file_environment', 'preload', 'prepare',
-                'requires_nvidia_physx'}
+                'requires_nvidia_physx', 'replacements'}
     if (not isinstance(info, dict) or not required <= info.keys() <= required | optional
             or type(info['format']) is not int or info['format'] != 1):
         raise ValueError('Unsupported patch manifest')
@@ -144,20 +150,32 @@ def read_patch(path):
     requires_nvidia_physx = info.get('requires_nvidia_physx', info['app_id'] == '35140' and prepare is not None)
     if type(requires_nvidia_physx) is not bool or (requires_nvidia_physx and info['app_id'] != '35140'):
         raise ValueError('Invalid NVIDIA PhysX patch requirement')
+    replacements = validate_replacements(info.get('replacements', []))
+    if not prepare and any('files/' + entry['source'] not in files for entry in replacements):
+        raise ValueError('Missing replacement payload')
     return Patch(path, sha256, info['app_id'], info['id'], info['title'], info['description'],
                  details.strip(), tuple(requires), environment, file_environment, preload, prepare,
-                 requires_nvidia_physx)
+                 requires_nvidia_physx, replacements)
 
 
-def discover_patches(folder, games):
+def discover_patches(folder, games, downloads=None):
+    patches, issues = scan_patches(folder.glob(f'*/{PATCH_NAME}'), games)
+    if downloads is not None:
+        downloaded, download_issues = scan_patches(downloads.glob(f'*/current/{PATCH_NAME}'), games)
+        patches.update(downloaded)
+        issues.extend(download_issues)
+    return patches, issues
+
+
+def scan_patches(paths, games):
     patches = {}
     duplicates = set()
     issues = []
-    for path in sorted(folder.glob(f'*/{PATCH_NAME}')):
+    for path in sorted(paths):
         try:
             patch = read_patch(path)
         except (OSError, ValueError, BadZipFile, NotImplementedError) as error:
-            issues.append(f'{path.parent.name}/{path.name}: {error}')
+            issues.append(f'{path.name}: {error}')
             continue
         if patch.app_id not in games:
             continue
@@ -172,6 +190,7 @@ def discover_patches(folder, games):
 
 def validate_selection(patches, selected):
     variables = set()
+    replacement_targets = set()
     for key, patch in patches.items():
         if key not in selected:
             continue
@@ -185,6 +204,11 @@ def validate_selection(patches, selected):
             if (patch.app_id, name) in variables:
                 raise ValueError(f'{patch.title} conflicts with another selected patch for this game.')
             variables.add((patch.app_id, name))
+        for entry in patch.replacements:
+            target = (patch.app_id, entry['root'], entry['target'].casefold())
+            if target in replacement_targets:
+                raise ValueError(f'{patch.title} replaces the same file as another selected patch.')
+            replacement_targets.add(target)
 
 
 def without_missing_dependencies(patches):

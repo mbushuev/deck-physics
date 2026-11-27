@@ -1,9 +1,12 @@
 """Desktop setup window for per-game launch options and patches."""
 
+from concurrent.futures import ThreadPoolExecutor
 from html import escape
 from pathlib import Path
 from subprocess import SubprocessError
+from zipfile import BadZipFile
 
+from PatchDownloads import download_patches
 from PatchPackages import discover_patches, validate_selection
 
 
@@ -24,10 +27,11 @@ def manual_executable(value):
 
 class PatchDialog:
     def __init__(self, gtk, games, folder, launch_options, saved, package_version,
-                 check_package, download_package):
+                 check_package, download_package, downloads):
         self.gtk = gtk
         self.games = games
         self.folder = folder
+        self.downloads = downloads
         self.patches = {}
         self.selected = set()
         self.active_game = None
@@ -290,13 +294,19 @@ class PatchDialog:
         page.pack_start(self.launch_controls, False, False, 0)
 
         page.pack_start(gtk.Separator(orientation=gtk.Orientation.HORIZONTAL), False, False, 0)
-        page.pack_start(self.heading('Patches'), False, False, 0)
+        patch_controls = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=8)
+        patch_controls.pack_start(self.heading('Patches'), True, True, 0)
+        download = gtk.Button(label='Download patches')
+        download.set_tooltip_text('Download the patch set for the selected game from Deck Physics Patches.')
+        download.connect('clicked', self.download_clicked)
+        patch_controls.pack_end(download, False, False, 0)
+        page.pack_start(patch_controls, False, False, 0)
         patches = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=14)
         self.patch_rows = gtk.ListBox()
         self.patch_rows.set_selection_mode(gtk.SelectionMode.SINGLE)
         self.patch_rows.set_activate_on_single_click(False)
         self.patch_rows.connect('row-selected', self.show_details)
-        empty = self.label('Copy patch archives into patches/<game>/ and select Refresh patches.')
+        empty = self.label('Download patches for this game or add patch archives to patches/<game>/.')
         empty.set_margin_start(12)
         empty.set_margin_end(12)
         empty.get_style_context().add_class('dim-label')
@@ -460,7 +470,9 @@ class PatchDialog:
             changes.append(f'Runs {patch.prepare} on this Deck during setup.')
         if changes:
             sections.append('Changes\n' + '\n'.join(changes))
-        sections.append(f'Package\n{patch.path.relative_to(self.folder).as_posix()}')
+        label = (patch.path.relative_to(self.folder).as_posix() if patch.path.is_relative_to(self.folder)
+                 else f'{patch.path.name} (downloaded)')
+        sections.append(f'Package\n{label}')
         self.detail_text.set_text('\n\n'.join(sections))
 
     def toggle_patch(self, checkbox, row):
@@ -473,7 +485,7 @@ class PatchDialog:
         self.check_selection()
 
     def scan(self, remembered):
-        self.patches, issues = discover_patches(self.folder, self.games)
+        self.patches, issues = discover_patches(self.folder, self.games, self.downloads)
         self.selected = {key for key, patch in self.patches.items()
                          if remembered.get(key) == patch.sha256}
         self.show_patches()
@@ -487,6 +499,36 @@ class PatchDialog:
         count = len(self.patches)
         self.status.set_text(f'{count} patch found.' if count == 1 else f'{count} patches found.')
         self.status.show()
+
+    def download_clicked(self, _button):
+        from gi.repository import GLib
+
+        gtk = self.gtk
+        app_id = self.active_game
+        progress = gtk.MessageDialog(transient_for=self.dialog, modal=True,
+                                     message_type=gtk.MessageType.INFO,
+                                     text=f'Downloading patches for {self.games[app_id]["name"]}…')
+        progress.set_deletable(False)
+        spinner = gtk.Spinner()
+        progress.get_message_area().pack_end(spinner, False, False, 0)
+        spinner.show()
+        spinner.start()
+        try:
+            with ThreadPoolExecutor(max_workers=1) as worker:
+                job = worker.submit(download_patches, self.downloads, app_id)
+                job.add_done_callback(lambda _: GLib.idle_add(progress.response, gtk.ResponseType.OK))
+                progress.run()
+                count = job.result()
+        except (OSError, ValueError, BadZipFile, NotImplementedError) as error:
+            self.status.set_text(f'Patch download failed. {error}')
+        else:
+            remembered = {key: self.patches[key].sha256 for key in self.selected}
+            self.scan(remembered)
+            self.status.set_text(f'{count} downloaded. Choose patches and click Set Up Game.' if count
+                                 else 'No downloads are available for this game.')
+        finally:
+            progress.destroy()
+            self.status.show()
 
     def active_patch_keys(self):
         return {key for key in self.selected if self.patches[key].app_id == self.active_game}
@@ -523,7 +565,7 @@ class PatchDialog:
 
 
 def choose_launch_options(saved, games, folder, launch_options, package_version, check_package,
-                          download_package):
+                          download_package, downloads):
     try:
         import gi
         gi.require_version('Gtk', '3.0')
@@ -533,4 +575,4 @@ def choose_launch_options(saved, games, folder, launch_options, package_version,
     if not Gtk.init_check()[0]:
         raise RuntimeError('Open the installer in SteamOS Desktop Mode.')
     return PatchDialog(Gtk, games, folder, launch_options, saved, package_version,
-                       check_package, download_package).run()
+                       check_package, download_package, downloads).run()

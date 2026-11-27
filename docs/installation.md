@@ -5,8 +5,14 @@ Deck Physics bundles compatibility components and configures how Steam starts yo
 ## Requirements
 
 - Steam Deck running SteamOS with its built-in Steam client and a copy of a game from the [tested compatibility list](compatibility/README.md).
-- **Valve Proton 11.0-2e** (11.0.2) and **Steam Linux Runtime 4**. In Steam, open each game's **Properties → Compatibility**, select **Proton 11.0**, and let Steam finish installing the compatibility tool and runtime. Setup and launch both check for the exact Proton build.
+- **Valve Proton 11.0** and **Steam Linux Runtime 4** for GPU physics. Select **Proton 11.0** under each game's **Properties → Compatibility** and let Steam finish installing both. The published 0.1.0 installer requires the 11.0-2e build. [Development builds handle Proton updates automatically](#proton-updates).
 - Desktop Mode and your regular user account for setup. The installer uses Python 3.11 or later, GTK 3 with PyGObject, Bubblewrap with read-only overlay support, 7-Zip, KDialog, and Zenity. The optional FPS counter uses MangoHud.
+
+## Proton updates
+
+Development builds check the selected Wine binaries at every launch. When Wine matches the packaged GPU bridge, Deck Physics uses the Steam-selected compatibility tool. If Steam has updated Wine, Deck Physics looks for a compatible complete Proton installation in the Steam libraries or an existing Steam depot download. It can use that installation for this game session while Steam keeps the selected tool and its files in place.
+
+The packaged GPU bridge currently matches Wine from Valve Proton 11.0-2e. When no compatible installation is present, the game starts with the tool selected in Steam and standard settings. Deck Physics records the chosen path or the reason for the standard launch in the installation's per-game launch log. GPU physics and Deck Physics patches require a compatible Wine installation.
 
 ## Get the installer
 
@@ -34,10 +40,19 @@ Each manual executable gets a separate Proton prefix for Deck Physics. Saves sto
 
 ## Optional game patches
 
-The installer includes two optional patches for each tested game.
+The installer includes two optional patches for each game profile.
 
 - **Six-CU graphics mask** limits graphics shaders to six compute units. Physics compute can still use all eight.
 - **Blocking GPU waits** lets the CPU sleep while waiting for GPU work, which can reduce power draw.
+
+### Download patches
+
+Select a game and click **Download patches** to fetch its patch set from the
+[Deck Physics patch repository](https://github.com/mbushuev/deck-physics-patches).
+Setup verifies the archives and saves them in its local patch cache. They appear
+in the selected game's patch list. Choose the patches you want and click
+**Set Up Game** to apply them. Downloading them again refreshes the set for that
+game. Existing selections survive when the archive is unchanged.
 
 ### Add your own patches
 
@@ -54,4 +69,4 @@ patches/
     blocking-wait.deckphysx.zip
 ```
 
-Use **Search games** to find a game and select a patch row to see its details and dependencies. Use **Refresh patches** after copying, updating, or removing files while setup is open. It rescans the local folder and keeps selections for unchanged archives. New and changed archives start unchecked. Select files you trust, since enabled patches can run code during setup or launch. See the [package format](build.md#game-patch-format) to make a patch.
+Use **Search games** to find a game and select a patch row to see its details and dependencies. Use **Refresh patches** after copying, updating, or removing files while setup is open. It rescans the local folder and keeps selections for unchanged archives. New and changed archives start unchecked. Downloaded archives take precedence when a local archive has the same patch ID for that game. Select files you trust, since enabled patches can run code during setup or launch. See the [package format](build.md#game-patch-format) to make a patch.

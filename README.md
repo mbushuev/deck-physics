@@ -9,7 +9,7 @@ Deck Physics sets up performance profiles for classic games on Steam Deck. Confi
 ## Quick start
 
 1. Get the [installer archive](docs/installation.md#get-the-installer) and extract the `.tar.gz` on the Deck.
-2. In Steam, select **Proton 11.0** under the game's **Properties → Compatibility**. Deck Physics 0.1.0 requires **Valve Proton 11.0-2e** and **Steam Linux Runtime 4**.
+2. In Steam, select **Proton 11.0** under the game's **Properties → Compatibility**. For GPU physics requirements and how development builds handle Proton updates, see the [installation guide](docs/installation.md#proton-updates).
 3. In Desktop Mode, run `Install.sh`. Select a game, review its launch options and patches, then click **Set Up Game**.
 4. Copy the command from the setup summary, including `%command%`, into the game's **Launch Options** in Steam. Launch from Desktop Mode or Gaming Mode.
 
@@ -19,7 +19,7 @@ The game list shows the available profiles and marks detected Steam installation
 
 - Under **Launch options**, set intro skipping and the FPS counter. Alice also has a frame rate selector.
 - **Patches** lists optional changes. The **Six-CU graphics mask** tunes GPU scheduling, and **Blocking GPU waits** reduces CPU activity while waiting for GPU work.
-- Select a patch row to view its details and dependencies. **Refresh patches** rescans the local patch folder.
+- **Download patches** fetches the patch set for the selected game. Select a patch row to view its details and dependencies. **Refresh patches** rescans the local patch folder.
 
 Run `Install.sh` again to set up another game or update its settings.
 

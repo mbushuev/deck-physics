@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the two Steam Deck profiles from a local bridge bundle."""
+"""Install Steam Deck game profiles from a local bridge bundle."""
 
 import fcntl
 import hashlib
@@ -22,15 +22,16 @@ from PatchPackages import without_missing_dependencies
 
 
 BUNDLE = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BUNDLE / 'runtime'))
+from proton_compatibility import RUNTIME, STEAM, installed_protons, libraries
+
 USER_DIR = Path.home()
-STEAM = USER_DIR / '.local/share/Steam'
 STATE = USER_DIR / '.local/share/amd-physx/deck-proton11'
 RUNTIME_DIR = Path('deck-runtime/chkuendig-proton-ab')
-VERSION = '1791559474 proton-11.0-2e-x86_64'
-WINE_HASH = 'e67b173fbb06ed42a15de73c50024403c2a825e0b044b737005940b87ff5ef9e'
 GAMES = {
     '35140': ('Batman: Arkham Asylum GOTY Edition', 'Binaries/ShippingPC-BmGame.exe'),
     '19680': ('Alice: Madness Returns', 'Binaries/Win32/AliceMadnessReturns.exe'),
+    '50130': ('Mafia II (Classic)', 'pc/mafia2.exe'),
 }
 LAUNCH_OPTIONS = {
     'skip_startup_movies': (True, 'Skip intro videos', 'Skip videos before the main menu.'),
@@ -67,13 +68,6 @@ def matches(path, expected):
     return path.is_file() and digest(path) == expected
 
 
-def libraries(steam):
-    settings = steam / 'steamapps/libraryfolders.vdf'
-    contents = settings.read_text() if settings.is_file() else ''
-    paths = re.findall(r'^\s*"path"\s+"([^"]+)"', contents, re.M)
-    return list(dict.fromkeys((steam / 'steamapps', *(Path(p) / 'steamapps' for p in paths))))
-
-
 def discover(steam):
     apps = libraries(steam)
     games = {app_id: {'name': name} for app_id, (name, _) in GAMES.items()}
@@ -96,20 +90,12 @@ def discover(steam):
 
 
 def discover_runtime(apps):
-    for app_dir in apps:
-        proton = app_dir / 'common/Proton 11.0'
-        version = proton / 'version'
-        if version.is_file() and version.read_text().strip() == VERSION and matches(
-                proton / 'files/lib/wine/x86_64-unix/ntdll.so', WINE_HASH):
-            break
-    else:
-        raise RuntimeError('This build requires Valve Proton 11.0-2e. Select Proton 11.0 '
-                           'in the game’s Steam properties and let Steam download it.')
-    runtime = next((entry for app_dir in apps
-                    if (entry := app_dir / 'common/SteamLinuxRuntime_4/_v2-entry-point').is_file()), None)
-    if runtime is None:
-        raise RuntimeError('Steam Linux Runtime 4 is missing. Let Steam finish installing it.')
-    return {'proton': str(proton.resolve()), 'runtime': str(runtime.resolve())}
+    # These paths are used by the redistributable installer. Steam selects the
+    # compatibility tool for the game itself at launch.
+    proton = next(installed_protons(apps), None)
+    runtime = next((entry.resolve() for app_dir in apps
+                    if (entry := app_dir / 'common' / RUNTIME).is_file()), None)
+    return {'proton': str(proton) if proton else None, 'runtime': str(runtime) if runtime else None}
 
 
 def configure_games(catalog, choices, state):
@@ -256,6 +242,9 @@ def extract_alice_files(archive, directory):
 
 
 def install_batman_physx(archive, layout, prefix, state):
+    if not layout['proton'] or not layout['runtime']:
+        raise RuntimeError('Install Valve Proton 11.0 and Steam Linux Runtime 4 in Steam before '
+                           'setting up the NVIDIA package for Batman.')
     proton = Path(layout['proton'])
     runtime = Path(layout['runtime'])
     prefix.mkdir(parents=True, exist_ok=True)
@@ -372,7 +361,7 @@ def main():
         saved = read_installed_layout(STATE / 'current')
         choices = choose_launch_options(saved, catalog, BUNDLE / 'patches', LAUNCH_OPTIONS,
                                         PHYSX_VERSION, lambda: find_physx_package(STATE),
-                                        lambda: prepare_physx_package(STATE))
+                                        lambda: prepare_physx_package(STATE), STATE / 'patch-downloads')
         if choices is None:
             return
         game_choices, selected_patches = choices
@@ -405,7 +394,8 @@ def main():
     game = next(iter(games.values()))
     patch_count = len(selected_patches)
     instructions = (f'Configured game\n{game["name"]}\n\nEnabled patches ({patch_count})\n\n'
-                    'In Steam, select Proton 11.0 and paste the command below into Launch Options.\n'
+                    'In Steam, select Valve Proton 11.0 and paste the command below into Launch Options.\n'
+                    'Deck Physics checks the installed Wine build at launch.\n'
                     'Set PhysX to High in the game settings.')
     if game['source'] == 'manual':
         instructions += '\n\nUse the Non-Steam shortcut for the executable you selected.'

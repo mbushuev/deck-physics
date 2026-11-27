@@ -8,7 +8,7 @@ From the root of a clean checkout, run the builder.
 python3 packaging/Build-DeckPhysics.py
 ```
 
-The builder downloads the pinned [Proton-ZLUDA release asset][release] and verifies the archive and each selected runtime file against [the input manifest](../packaging/upstream.json). Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. It compiles the HIP wait library from `packaging/native/hip-wait-startup.c` and uses `packaging/bundled-patches/` to create the optional game patch files. The Steam launch uses the Valve compatibility tool selected by the user. PhysX binaries are installed locally on the Deck.
+The builder downloads the pinned [Proton-ZLUDA release asset][release] and verifies the archive and each selected runtime file against [the input manifest](../packaging/upstream.json). Use `--proton ../inputs/Proton-ZLUDA.tar.gz` to build with a local copy of the same asset. It compiles the HIP wait library from `packaging/native/hip-wait-startup.c` and uses `packaging/bundled-patches/` to create the optional game patch files. The launcher checks the Wine ABI in the Steam-selected tool and can use a complete compatible Proton installation already on the Deck for that session. The checked Wine components are listed in \`runtime/proton_compatibility.py\`. Validate any new Wine target with the corresponding bridge before adding its fingerprints. PhysX binaries are installed locally on the Deck.
 
 ## Versions and releases
 
@@ -49,6 +49,7 @@ Deck Physics bundles the graphics mask and blocking GPU waits. Additional patch 
 - `file_environment` supplies environment variables pointing to files relative to the extracted payload. Paths use `/` and cannot traverse outside the payload.
 - `preload` is the relative path to a Linux shared library from the payload.
 - `prepare` is the relative path to a Python script in the payload. The installer runs it in the patch directory with the Proton prefix and game executable paths as positional arguments. It can generate files referenced by `file_environment` or `preload`.
+- `replacements` is a list of temporary file replacements. Each object specifies a `root` (`game` for the selected executable's directory or `prefix` for its Proton prefix), a relative `target`, a relative `source` inside the installed patch, and the expected `original_sha256`. The installer and launcher verify the original file before use. The launcher mounts the replacement read-only for the game session.
 - `requires_nvidia_physx` is a boolean for Batman patches that need the runtime from the official NVIDIA PhysX package. Set it to `false` for preparation scripts that do not use that runtime. For compatibility with existing archives, Batman patches with a `prepare` script default to `true` when the field is omitted. Other patches default to `false`.
 
 ## Sources and updates
