@@ -15,12 +15,14 @@ Mafia II: Definitive Edition is outside the tested profile.
 
 The profile can show the FPS counter and skip the publisher and NVIDIA intro videos.
 The GPU Clothing patch prepares compatible files from the installed game and
-mounts them for the session. The game runs its original executable.
+mounts them read-only for the session. Accelerated vertex packing is used in the
+render path. The installed executable stays intact.
 
 ## Performance reference
 
-The built-in benchmark averaged **73.8 FPS** on a Steam Deck OLED on battery
-with GPU clocks in automatic mode. The run used 1280 × 800, Valve Proton 11.0-2e,
+The built-in benchmark averaged **76.7 FPS** on a Steam Deck OLED on AC
+with GPU clocks in automatic mode. The corresponding original-packing run
+averaged **74.4 FPS**. The run used 1280 × 800, Valve Proton 11.0-2e,
 APEX PhysX High, all effects, the three patches above, and VSync and antialiasing
 off. Returning to the main menu from gameplay and interrupting the benchmark
 were also verified with the patch active.
